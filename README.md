@@ -86,6 +86,7 @@ When several files are dragged together, the flower offers the conversions they 
 
 - `Sources/BloomCore`: everything about files: which petals a file gets, every conversion and tool, key taps and petal hit-testing.
 - `Sources/Bloom`: the menu-bar app, drag detection, the flower, Float cards and the Actions petals.
+- `Sources/BloomRender`: a helper bundled inside Bloom.app that renders documents to PDF, keeping the app responsive during long documents.
 - `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
 
 Every pull request is built and tested on a Mac by GitHub Actions, and the finished `Bloom.app` is attached to the run. See [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -239,36 +239,20 @@ public enum Engine {
         return output
     }
 
-    @MainActor
-    private static func documentToPDF(_ file: URL) throws -> URL {
-        let text = try NSAttributedString(url: file, options: [:], documentAttributes: nil)
+    /// Bloom.app ships the BloomRender helper next to its executable. AppKit prints text only on a main thread, so
+    /// rendering in the helper keeps the app's main thread free; without the helper (tests) it renders in-process.
+    private static func documentToPDF(_ file: URL) async throws -> URL {
         let output = outputURL(for: file, ext: "pdf")
-        let info = NSPrintInfo(dictionary: [.jobSavingURL: output])
-        info.jobDisposition = .save
-        info.paperSize = NSSize(width: 612, height: 792)
-        info.topMargin = 54
-        info.bottomMargin = 54
-        info.leftMargin = 54
-        info.rightMargin = 54
-        info.horizontalPagination = .fit
-        info.verticalPagination = .automatic
-        info.isHorizontallyCentered = false
-        info.isVerticallyCentered = false
-
-        let width = info.paperSize.width - info.leftMargin - info.rightMargin
-        let view = NSTextView(frame: NSRect(x: 0, y: 0, width: width, height: 10))
-        view.appearance = NSAppearance(named: .aqua)
-        view.drawsBackground = false
-        view.isVerticallyResizable = true
-        view.maxSize = NSSize(width: width, height: .greatestFiniteMagnitude)
-        view.textContainer?.widthTracksTextView = true
-        view.textStorage?.setAttributedString(text)
-        view.sizeToFit()
-
-        let operation = NSPrintOperation(view: view, printInfo: info)
-        operation.showsPrintPanel = false
-        operation.showsProgressPanel = false
-        guard operation.run() else { throw ConversionError("Couldn’t save the PDF.") }
+        do {
+            if let helper = Bundle.main.url(forAuxiliaryExecutable: "BloomRender") {
+                try await shell(helper.path, [file.path, output.path])
+            } else {
+                try await DocumentRenderer.renderPDF(from: file, to: output)
+            }
+        } catch {
+            discard([output])
+            throw error
+        }
         return output
     }
 

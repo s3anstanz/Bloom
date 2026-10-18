@@ -16,6 +16,7 @@ These instructions apply to every agent working in this repository, including Cl
 
 - `Sources/BloomCore`: file logic (petal catalog, conversions, tools, actions, naming). Public API for the app; covered by tests.
 - `Sources/Bloom`: menu bar, drag detection, flower UI. Keep logic out of here; move anything testable into BloomCore.
+- `Sources/BloomRender`: helper executable bundled in Bloom.app that prints documents to PDF, so AppKit text printing never runs on the app's main thread.
 - `Tests/BloomCoreTests`: XCTest. Generate fixtures in the test; don't commit binary samples.
 - `Support/Info.plist`: bundle metadata (identifier `com.westfalllabs.bloom`).
 

@@ -103,19 +103,22 @@ enum Fixtures {
             AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsNonInterleaved: false,
         ]
-        let file = try AVAudioFile(forWriting: url, settings: settings)
-        let frames = AVAudioFrameCount(sampleRate * seconds)
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: frames),
-            let samples = buffer.floatChannelData
-        else { throw FixtureError("Couldn’t create the sample audio.") }
-        buffer.frameLength = frames
-        for frame in 0..<Int(frames) {
-            let value = Float(sin(2 * Double.pi * 440 * Double(frame) / sampleRate) * 0.5)
-            for channel in 0..<Int(channels) {
-                samples[channel][frame] = value
+        // AVAudioFile finishes the file only when it is deallocated, so drain it before anything reads the file.
+        try autoreleasepool {
+            let file = try AVAudioFile(forWriting: url, settings: settings)
+            let frames = AVAudioFrameCount(sampleRate * seconds)
+            guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: frames),
+                let samples = buffer.floatChannelData
+            else { throw FixtureError("Couldn’t create the sample audio.") }
+            buffer.frameLength = frames
+            for frame in 0..<Int(frames) {
+                let value = Float(sin(2 * Double.pi * 440 * Double(frame) / sampleRate) * 0.5)
+                for channel in 0..<Int(channels) {
+                    samples[channel][frame] = value
+                }
             }
+            try file.write(from: buffer)
         }
-        try file.write(from: buffer)
         return url
     }
 
