@@ -31,6 +31,8 @@ final class RadialModel: ObservableObject {
     @Published var icon: NSImage?
     @Published var fileCount = 0
     @Published var isVisible = false
+    @Published var timeline = FlowerTimeline()
+    @Published var isAnimating = false
 }
 
 /// Owns the floating flower window: placement, hover selection, and running the chosen petal.
@@ -41,12 +43,13 @@ final class RadialController {
     private var hideTask: Task<Void, Never>?
     private var tabTask: Task<Void, Never>?
     private var presentation = 0
+    private var motionRun = 0
     private lazy var panel: NSPanel = makePanel()
 
     func present(mode: Mode, files: [URL]) {
         guard model.phase != .working else { return }
         hideTask?.cancel()
-        let isNewDrag = !panel.isVisible || !model.isVisible || model.phase != .choosing
+        let isNewDrag = !panel.isVisible || !model.isVisible || model.phase != .choosing || model.timeline.closed != nil
         if !isNewDrag, model.mode == mode, files == self.files { return }
         if isNewDrag {
             tabTask?.cancel()
@@ -65,10 +68,12 @@ final class RadialController {
             ? NSWorkspace.shared.icon(forFile: files[0].path)
             : NSWorkspace.shared.icon(forFiles: files.map(\.path))
         if isNewDrag { place(at: NSEvent.mouseLocation) }
+        var timeline = FlowerTimeline(entrance: isNewDrag ? .bloom : .turn, opened: Self.now)
+        if !isNewDrag { timeline.glassOpened = model.timeline.glassOpened }
+        model.timeline = timeline
+        animate()
         panel.orderFrontRegardless()
-        if !model.isVisible {
-            Task { @MainActor in self.model.isVisible = true }
-        }
+        model.isVisible = true
         presentation += 1
         let current = presentation
         Task { @MainActor in
@@ -76,11 +81,17 @@ final class RadialController {
             guard current == self.presentation, self.model.phase == .choosing else { return }
             self.model.items = items
             self.model.itemsLoaded = true
+            self.model.timeline.petalsShown = Self.now
+            self.animate()
         }
     }
 
+    /// Letting go anywhere but on a petal folds the flower away.
     func dragEnded() {
-        if model.phase == .choosing { dismiss(after: 0) }
+        guard model.phase == .choosing, model.timeline.closed == nil else { return }
+        model.timeline.closed = Self.now
+        animate()
+        dismiss(after: FlowerMotion.closeDuration)
     }
 
     /// `offset` is the cursor position relative to the flower's center, y pointing up.
@@ -104,11 +115,15 @@ final class RadialController {
         else { return false }
         let item = model.items[index]
         let files = self.files
-        // DragWatcher can see the mouse-up first and start hiding the flower before this drop arrives.
+        // DragWatcher can see the mouse-up first and start folding the flower away before this drop arrives.
         hideTask?.cancel()
         model.isVisible = true
+        model.timeline.closed = nil
         model.phase = .working
         model.status = item.progress
+        model.timeline.dropped = Self.now
+        model.timeline.chosen = index
+        animate()
         Task { @MainActor in
             do {
                 let message: String
@@ -129,15 +144,39 @@ final class RadialController {
                 }
                 self.model.phase = .done
                 self.model.status = message
+                self.finish(succeeded: true)
                 NSSound(named: "Pop")?.play()
                 self.dismiss(after: 1.4)
             } catch {
                 self.model.phase = .failed
                 self.model.status = error.localizedDescription
+                self.finish(succeeded: false)
                 self.dismiss(after: 4)
             }
         }
         return true
+    }
+
+    private func finish(succeeded: Bool) {
+        model.timeline.finish(succeeded: succeeded, at: Self.now)
+        animate()
+    }
+
+    /// Keeps the flower's animation clock running until its latest moment settles, then lets it rest.
+    private func animate() {
+        motionRun += 1
+        let run = motionRun
+        model.isAnimating = true
+        let remaining = FlowerMotion.endTime(of: model.timeline, petals: model.items.count) - Self.now
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(max(remaining, 0) * 1_000_000_000))
+            guard run == self.motionRun else { return }
+            self.model.isAnimating = false
+        }
+    }
+
+    private static var now: TimeInterval {
+        Date().timeIntervalSinceReferenceDate
     }
 
     private static func savedMessage(_ outputs: [URL]) -> String {
@@ -145,7 +184,7 @@ final class RadialController {
     }
 
     private func itemIndex(at offset: CGPoint) -> Int? {
-        guard model.phase == .choosing else { return nil }
+        guard model.phase == .choosing, model.timeline.closed == nil else { return nil }
         return PetalLayout.index(
             at: offset,
             count: model.items.count,
@@ -155,7 +194,7 @@ final class RadialController {
     }
 
     private func tab(at offset: CGPoint) -> Mode? {
-        guard model.phase == .choosing else { return nil }
+        guard model.phase == .choosing, model.timeline.closed == nil else { return nil }
         return FlowerTabs.mode(
             at: CGPoint(x: offset.x, y: offset.y + RadialLayout.tabsDrop),
             tabWidth: RadialLayout.tabSize.width,
@@ -191,7 +230,7 @@ final class RadialController {
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard !Task.isCancelled else { return }
             self.model.isVisible = false
-            try? await Task.sleep(nanoseconds: 200_000_000)
+            try? await Task.sleep(nanoseconds: 260_000_000)
             guard !Task.isCancelled else { return }
             self.panel.orderOut(nil)
             self.model.phase = .choosing
