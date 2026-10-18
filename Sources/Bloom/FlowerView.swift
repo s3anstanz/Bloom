@@ -44,9 +44,13 @@ struct FlowerView: View {
             flower(palette)
                 .frame(width: RadialLayout.ringRadius * 2, height: RadialLayout.ringRadius * 2)
                 .position(RadialLayout.ringCenter)
+            if model.phase == .choosing {
+                TabRow(current: model.mode, hovered: model.hoveredTab)
+                    .position(x: RadialLayout.ringCenter.x, y: RadialLayout.ringCenter.y + RadialLayout.tabsDrop)
+            }
             if let caption {
                 CaptionPill(text: caption)
-                    .position(x: RadialLayout.ringCenter.x, y: RadialLayout.ringCenter.y + RadialLayout.ringRadius + 22)
+                    .position(x: RadialLayout.ringCenter.x, y: captionY)
             }
         }
         .frame(width: RadialLayout.size.width, height: RadialLayout.size.height)
@@ -54,6 +58,7 @@ struct FlowerView: View {
         .opacity(model.isVisible ? 1 : 0)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: model.isVisible)
         .animation(.easeOut(duration: 0.12), value: model.highlighted)
+        .animation(.easeOut(duration: 0.12), value: model.hoveredTab)
         .animation(.easeInOut(duration: 0.2), value: model.phase)
         .animation(.easeInOut(duration: 0.25), value: model.mode)
         .environment(\.colorScheme, .dark)
@@ -88,10 +93,48 @@ struct FlowerView: View {
             guard model.itemsLoaded else { return nil }
             return model.mode == .convert ? "No conversions for this file" : "No tools for this file"
         }
-        switch model.mode {
-        case .convert: return "Convert  ·  ⌘ Tools  ·  ⌃ Actions"
-        case .tools: return "Tools  ·  ⇧ Convert  ·  ⌃ Actions"
-        case .actions: return "Actions  ·  ⇧ Convert  ·  ⌘ Tools"
+        return nil
+    }
+
+    /// Below the tabs while choosing; in their place once they hide for progress and the result.
+    private var captionY: CGFloat {
+        if model.phase == .choosing {
+            return RadialLayout.ringCenter.y + RadialLayout.tabsDrop + RadialLayout.tabSize.height / 2 + 23
+        }
+        return RadialLayout.ringCenter.y + RadialLayout.ringRadius + 22
+    }
+}
+
+/// One tab per flower under the petals. The open flower's tab is filled with its petal colour.
+private struct TabRow: View {
+    let current: Mode
+    let hovered: Mode?
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(FlowerTabs.modes, id: \.self) { mode in
+                Text(Self.label(mode))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(mode == current ? 1 : 0.75))
+                    .frame(width: RadialLayout.tabSize.width, height: RadialLayout.tabSize.height)
+                    .background(Capsule().fill(segmentColor(mode)).padding(3))
+            }
+        }
+        // One continuous backdrop: the window passes drags through fully transparent gaps.
+        .background(Capsule().fill(Color.black.opacity(0.75)))
+    }
+
+    private func segmentColor(_ mode: Mode) -> Color {
+        let deep = PetalPalette.forMode(mode).deep
+        if mode == current { return deep }
+        return mode == hovered ? deep.opacity(0.4) : .clear
+    }
+
+    private static func label(_ mode: Mode) -> String {
+        switch mode {
+        case .convert: return "⇧ Convert"
+        case .tools: return "⌘ Tools"
+        case .actions: return "⌃ Actions"
         }
     }
 }
