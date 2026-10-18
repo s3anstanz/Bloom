@@ -703,7 +703,7 @@ public enum Engine {
     /// Deletes results Bloom created, so a failure never leaves a partial result beside the user's files.
     private static func discard(_ outputs: [URL]) {
         for output in outputs {
-            discard([output])
+            try? FileManager.default.removeItem(at: output)
         }
     }
 
