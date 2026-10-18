@@ -24,12 +24,12 @@ public enum FileKind {
 
     public init(_ url: URL) {
         let ext = url.pathExtension.lowercased()
-        let type =
-            (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
-            ?? UTType(filenameExtension: ext)
-            ?? .data
+        let values = try? url.resourceValues(forKeys: [.contentTypeKey, .isDirectoryKey, .isPackageKey])
+        let type = values?.contentType ?? UTType(filenameExtension: ext) ?? .data
         let isTarball = Self.tarballCompressionExtensions.contains(ext) && url.deletingPathExtension().pathExtension.lowercased() == "tar"
-        if Self.subtitleExtensions.contains(ext) {
+        if values?.isDirectory == true && values?.isPackage != true {
+            self = .other
+        } else if Self.subtitleExtensions.contains(ext) {
             self = .subtitle
         } else if Self.archiveExtensions.contains(ext) || isTarball {
             self = .archive

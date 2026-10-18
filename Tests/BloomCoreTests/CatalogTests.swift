@@ -70,6 +70,19 @@ final class CatalogTests: XCTestCase {
         XCTAssertEqual(tools, ["Zip"])
     }
 
+    func testFolderNamedLikeAnArchiveOrSubtitleCanOnlyBeZipped() async throws {
+        let parent = try Fixtures.makeFolder()
+        defer { try? FileManager.default.removeItem(at: parent) }
+        for name in ["backup.zip", "bundle.tar.gz", "captions.srt"] {
+            let folder = parent.appendingPathComponent(name)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+            let conversions = await WheelCatalog.items(for: [folder], mode: .convert)
+            let tools = await WheelCatalog.items(for: [folder], mode: .tools).map(\.title)
+            XCTAssertEqual(conversions.count, 0, name)
+            XCTAssertEqual(tools, ["Zip"], name)
+        }
+    }
+
     func testZipNeedsEverythingInOneFolder() async {
         let oneFolder = await titles(["notes.txt", "photo.png"], .tools)
         let twoFolders = await titles(["notes.txt", "Desktop/photo.png"], .tools)
