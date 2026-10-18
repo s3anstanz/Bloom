@@ -54,6 +54,13 @@ final class CatalogTests: XCTestCase {
         XCTAssertEqual(tools, ["Extract", "Zip"])
     }
 
+    func testOnlyTarballsAmongCompressedFilesOfferExtract() async {
+        let tarball = await titles(["bundle.tar.xz"], .tools)
+        let compressedFile = await titles(["notes.txt.gz"], .tools)
+        XCTAssertTrue(tarball.contains("Extract"))
+        XCTAssertFalse(compressedFile.contains("Extract"))
+    }
+
     func testFolderCanOnlyBeZipped() async throws {
         let folder = try Fixtures.makeFolder()
         defer { try? FileManager.default.removeItem(at: folder) }

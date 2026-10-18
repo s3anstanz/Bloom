@@ -11,7 +11,9 @@ public enum FileKind {
     case image, pdf, video, audio, document, subtitle, archive, other
 
     private static let subtitleExtensions: Set<String> = ["srt", "vtt"]
-    private static let archiveExtensions: Set<String> = ["zip", "tar", "gz", "tgz", "bz2", "tbz", "xz", "txz"]
+    private static let archiveExtensions: Set<String> = ["zip", "tar", "tgz", "tbz", "txz"]
+    /// Compressed tarballs end in .tar plus one of these. On its own, each is a single compressed file that tar can't unpack.
+    private static let tarballCompressionExtensions: Set<String> = ["gz", "bz2", "xz"]
     private static let documentTypes: [UTType] =
         [.rtf, .rtfd, .html, .plainText]
         + [
@@ -26,9 +28,10 @@ public enum FileKind {
             (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType
             ?? UTType(filenameExtension: ext)
             ?? .data
+        let isTarball = Self.tarballCompressionExtensions.contains(ext) && url.deletingPathExtension().pathExtension.lowercased() == "tar"
         if Self.subtitleExtensions.contains(ext) {
             self = .subtitle
-        } else if Self.archiveExtensions.contains(ext) {
+        } else if Self.archiveExtensions.contains(ext) || isTarball {
             self = .archive
         } else if type.conforms(to: .pdf) {
             self = .pdf

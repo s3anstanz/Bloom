@@ -108,7 +108,8 @@ final class FileDragView: NSImageView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        [.copy, .move, .generic]
+        // Finder moves the file on the same disk when the source allows .move or .generic; Float must leave the original in place.
+        .copy
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {

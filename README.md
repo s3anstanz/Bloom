@@ -56,7 +56,7 @@ When several files are dragged together, the flower offers the conversions they 
 | Mute | Video |
 | Split | PDFs (one PDF per page) |
 | Merge PDF | Two or more PDFs and/or images |
-| Extract | ZIP, TAR, TGZ and other archives |
+| Extract | ZIP and TAR archives, including compressed tarballs (.tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz) |
 | Zip | Anything, including folders, as long as everything dragged is in one folder |
 
 ### ⌃ Actions
@@ -64,7 +64,7 @@ When several files are dragged together, the flower offers the conversions they 
 | Action | What it does |
 |---|---|
 | **AirDrop** | Opens the AirDrop sheet |
-| **Float** | Keeps the file in a small card on screen. Drag its icon anywhere later, double-click to open, drag the card's edge to move it, ✕ to close |
+| **Float** | Keeps the file in a small card on screen. Drag its icon anywhere later to drop a copy, double-click to open, drag the card's edge to move it, ✕ to close |
 | **Copy** | Puts the file on the clipboard, ready to paste with ⌘V |
 | **Move** | Asks for a folder and moves the file there |
 | **Copy Path** | Copies the full path |
