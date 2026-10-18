@@ -15,7 +15,7 @@ Drag a file, tap a key, and a flower blooms around your cursor. Each petal is so
 Requires macOS 13 or later and Apple's Command Line Tools (the installer offers them if they're missing).
 
 ```bash
-git clone https://github.com/s3anstanz/bloom.git ~/Bloom
+git clone https://github.com/s3anstanz/Bloom.git ~/Bloom
 ~/Bloom/scripts/install.sh
 ```
 
