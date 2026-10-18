@@ -44,6 +44,10 @@ jobs:
       - name: Test
         run: swift test
 
+      - name: Crash reports
+        if: failure()
+        run: scripts/print-crash-reports.py
+
       - name: Package Bloom.app
         run: |
           scripts/bundle.sh release build/Bloom.app
