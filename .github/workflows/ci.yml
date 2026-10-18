@@ -44,6 +44,16 @@ jobs:
       - name: Test
         run: swift test
 
+      - name: Backtrace of a test crash
+        if: failure()
+        run: |
+          lldb --batch \
+            -o "process handle SIGPIPE --notify false --pass true --stop false" \
+            -o run \
+            -k "thread backtrace all" \
+            -k quit \
+            -- "$(xcrun --find xctest)" .build/debug/BloomPackageTests.xctest
+
       - name: Package Bloom.app
         run: |
           scripts/bundle.sh release build/Bloom.app

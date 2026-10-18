@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Building Swift for CodeQL takes about ten minutes on macOS, so pull requests skip this job. It runs on
   # every push to main and weekly; its findings are fixed in a follow-up pull request.
