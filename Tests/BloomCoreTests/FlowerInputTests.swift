@@ -24,6 +24,32 @@ final class PetalLayoutTests: XCTestCase {
     }
 }
 
+final class FlowerTabsTests: XCTestCase {
+    private func tab(_ x: CGFloat, _ y: CGFloat) -> Mode? {
+        FlowerTabs.mode(at: CGPoint(x: x, y: y), tabWidth: 96, height: 30)
+    }
+
+    func testTabsRunConvertToolsActionsFromLeftToRight() {
+        XCTAssertEqual(tab(-96, 0), .convert)
+        XCTAssertEqual(tab(0, 0), .tools)
+        XCTAssertEqual(tab(96, 0), .actions)
+    }
+
+    func testEachTabCoversItsWholeWidth() {
+        XCTAssertEqual(tab(-143, 14), .convert)
+        XCTAssertEqual(tab(-47, -14), .tools)
+        XCTAssertEqual(tab(47, 14), .tools)
+        XCTAssertEqual(tab(143, -14), .actions)
+    }
+
+    func testOffTheRowPicksNoTab() {
+        XCTAssertNil(tab(0, 16))
+        XCTAssertNil(tab(0, -16))
+        XCTAssertNil(tab(-145, 0))
+        XCTAssertNil(tab(145, 0))
+    }
+}
+
 final class KeyTapsTests: XCTestCase {
     func testShiftHeldWhenTheDragStartsOpensConvert() {
         var taps = KeyTaps(heldAtDragStart: [.shift])
@@ -49,6 +75,13 @@ final class KeyTapsTests: XCTestCase {
         XCTAssertEqual(taps.update(held: [.shift]), .convert)
         XCTAssertEqual(taps.update(held: [.shift, .control]), .actions)
         XCTAssertEqual(taps.update(held: [.command]), .tools)
+    }
+
+    func testTappingTheOpenFlowersKeyAgainReportsItAgain() {
+        var taps = KeyTaps(heldAtDragStart: [])
+        XCTAssertEqual(taps.update(held: [.shift]), .convert)
+        XCTAssertNil(taps.update(held: []))
+        XCTAssertEqual(taps.update(held: [.shift]), .convert)
     }
 
     func testNoKeyNoFlower() {

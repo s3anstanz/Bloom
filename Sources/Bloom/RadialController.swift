@@ -3,11 +3,16 @@ import BloomCore
 import SwiftUI
 
 enum RadialLayout {
-    static let size = CGSize(width: 340, height: 384)
+    static let size = CGSize(width: 340, height: 420)
     /// Flower center in SwiftUI coordinates (origin at top-left).
     static let ringCenter = CGPoint(x: 170, y: 170)
     static let ringRadius: CGFloat = 150
     static let hubRadius: CGFloat = 50
+    /// How far below the flower's center the tab row's center sits.
+    static let tabsDrop: CGFloat = 182
+    static let tabSize = CGSize(width: 96, height: 30)
+    /// Waiting this long on a tab before switching keeps an overshoot past the bottom petal from changing flowers.
+    static let tabDwell: Double = 0.2
 }
 
 @MainActor
@@ -19,6 +24,7 @@ final class RadialModel: ObservableObject {
     @Published var items: [WheelItem] = []
     @Published var itemsLoaded = false
     @Published var highlighted: Int?
+    @Published var hoveredTab: Mode?
     @Published var phase: Phase = .choosing
     @Published var status: String?
     @Published var mode: Mode = .convert
@@ -33,6 +39,7 @@ final class RadialController {
     let model = RadialModel()
     private var files: [URL] = []
     private var hideTask: Task<Void, Never>?
+    private var tabTask: Task<Void, Never>?
     private var presentation = 0
     private lazy var panel: NSPanel = makePanel()
 
@@ -40,6 +47,11 @@ final class RadialController {
         guard model.phase != .working else { return }
         hideTask?.cancel()
         let isNewDrag = !panel.isVisible || !model.isVisible || model.phase != .choosing
+        if !isNewDrag, model.mode == mode, files == self.files { return }
+        if isNewDrag {
+            tabTask?.cancel()
+            model.hoveredTab = nil
+        }
         self.files = files
         model.mode = mode
         model.items = []
@@ -74,6 +86,7 @@ final class RadialController {
     /// `offset` is the cursor position relative to the flower's center, y pointing up.
     @discardableResult
     func hover(_ offset: CGPoint?) -> Bool {
+        hoverTab(offset.flatMap { tab(at: $0) })
         let index = offset.flatMap { itemIndex(at: $0) }
         if index != model.highlighted {
             model.highlighted = index
@@ -141,8 +154,31 @@ final class RadialController {
         )
     }
 
+    private func tab(at offset: CGPoint) -> Mode? {
+        guard model.phase == .choosing else { return nil }
+        return FlowerTabs.mode(
+            at: CGPoint(x: offset.x, y: offset.y + RadialLayout.tabsDrop),
+            tabWidth: RadialLayout.tabSize.width,
+            height: RadialLayout.tabSize.height
+        )
+    }
+
+    private func hoverTab(_ mode: Mode?) {
+        guard mode != model.hoveredTab else { return }
+        model.hoveredTab = mode
+        tabTask?.cancel()
+        guard let mode, mode != model.mode else { return }
+        tabTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(RadialLayout.tabDwell * 1_000_000_000))
+            guard !Task.isCancelled, self.model.mode != mode else { return }
+            self.present(mode: mode, files: self.files)
+            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        }
+    }
+
     private func hideNow() {
         hideTask?.cancel()
+        tabTask?.cancel()
         model.isVisible = false
         panel.orderOut(nil)
         model.items = []
@@ -150,6 +186,7 @@ final class RadialController {
 
     private func dismiss(after delay: Double) {
         hideTask?.cancel()
+        tabTask?.cancel()
         hideTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard !Task.isCancelled else { return }

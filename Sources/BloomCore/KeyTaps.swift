@@ -10,15 +10,14 @@ public enum ModifierKey: Hashable {
 /// held when the drag starts it must be pressed again; ⇧ has no Finder meaning and opens Convert at once.
 public struct KeyTaps {
     private var held: Set<ModifierKey>
-    private var shown: Mode?
+    public private(set) var isOpen = false
 
     public init(heldAtDragStart: Set<ModifierKey>) {
         held = heldAtDragStart.subtracting([.shift])
     }
 
-    public var isOpen: Bool { shown != nil }
-
-    /// Returns the flower to show when a newly pressed key changes it, otherwise nil.
+    /// Returns the flower for a key that just went down, otherwise nil. Pressing the open flower's key again
+    /// reports it again, so a key always brings its flower back after a tab switched away from it.
     public mutating func update(held now: Set<ModifierKey>) -> Mode? {
         let pressed = now.subtracting(held)
         held = now
@@ -32,8 +31,7 @@ public struct KeyTaps {
         } else {
             return nil
         }
-        guard mode != shown else { return nil }
-        shown = mode
+        isOpen = true
         return mode
     }
 }

@@ -26,7 +26,7 @@ Bloom runs from the menu bar (flower icon). From that menu you can set **Compres
 ## Use
 
 1. Start dragging one or more files in Finder or on the Desktop.
-2. Tap **⇧**, **⌘** or **⌃**. The petals unfold from the center; you can let go of the key and the flower stays until you drop. Tap another key to switch flowers.
+2. Tap **⇧**, **⌘** or **⌃**. The petals unfold from the center; you can let go of the key and the flower stays until you drop. To switch flowers, tap another key or drag over the **⇧ Convert**, **⌘ Tools** and **⌃ Actions** tabs under the flower.
 3. Move toward a petal until it lifts and lights up, then let go. The center shows ✓ and you hear a pop.
 4. To cancel, let go in the center. Moving off the flower and letting go is a normal drop.
 
