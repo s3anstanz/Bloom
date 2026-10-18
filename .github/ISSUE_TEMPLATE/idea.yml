@@ -1,0 +1,16 @@
+name: Idea
+description: A new petal, tool, action or design change.
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What Bloom should do, and the moment you'd use it.
+    validations:
+      required: true
+  - type: textarea
+    id: design
+    attributes:
+      label: Look and feel
+      description: Sketches, references or screenshots, if it changes how Bloom looks.
