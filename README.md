@@ -38,7 +38,7 @@ Originals are never modified. Results get Finder-style names: `photo.jpg`, then 
 |---|---|
 | Images (JPG, PNG, HEIC, WebP, AVIF, TIFF, GIF, BMP, …) | JPG, PNG, HEIC, TIFF, GIF, BMP, JP2, PDF, plus WebP and AVIF where macOS can write them |
 | PDF | PNG, JPG (one image per page), TXT |
-| Video (MOV, MP4, M4V) | MP4, MOV, M4V, GIF (first 60 s), M4A (audio only) |
+| Video (MOV, MP4, M4V) | MP4, MOV, M4V, GIF (first 60 s), M4A (the soundtrack, for videos that have one) |
 | Audio (MP3, M4A, WAV, AIFF, FLAC, …) | M4A, WAV, AIFF |
 | Documents (DOCX, DOC, RTF, ODT, HTML, TXT, MD) | PDF, DOCX, RTF, TXT, HTML, ODT |
 | Subtitles (SRT, VTT) | SRT, VTT |

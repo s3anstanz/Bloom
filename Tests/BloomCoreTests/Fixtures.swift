@@ -119,6 +119,13 @@ enum Fixtures {
         return url
     }
 
+    /// Two seconds of H.264 video with no soundtrack, like most screen recordings.
+    static func silentVideo(in folder: URL, name: String = "recording.mov") async throws -> URL {
+        let url = folder.appendingPathComponent(name)
+        try await writeSilentVideo(to: url)
+        return url
+    }
+
     /// Two seconds of H.264 video with the sample tone as its soundtrack.
     static func video(in folder: URL) async throws -> URL {
         let silent = folder.appendingPathComponent("silent-\(UUID().uuidString).mov")

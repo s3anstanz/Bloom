@@ -25,6 +25,7 @@ public enum Engine {
             do {
                 outputs.append(try await convertOne(file, to: format))
             } catch {
+                discard(outputs)
                 throw ConversionError("\(file.lastPathComponent): \(error.localizedDescription)")
             }
         }
@@ -43,6 +44,7 @@ public enum Engine {
                 do {
                     outputs.append(try await applyOne(tool, to: file))
                 } catch {
+                    discard(outputs)
                     throw ConversionError("\(file.lastPathComponent): \(error.localizedDescription)")
                 }
             }
@@ -131,10 +133,15 @@ public enum Engine {
         }
         let folder = outputURL(for: file, ext: nil, suffix: " (\(format.title))")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
-        for number in 1...pageCount {
-            guard let page = document.page(at: number) else { continue }
-            let name = pageName(number, of: pageCount)
-            try writeImage(render(page), to: folder.appendingPathComponent(name).appendingPathExtension(format.rawValue), type: type)
+        do {
+            for number in 1...pageCount {
+                guard let page = document.page(at: number) else { continue }
+                let name = pageName(number, of: pageCount)
+                try writeImage(render(page), to: folder.appendingPathComponent(name).appendingPathExtension(format.rawValue), type: type)
+            }
+        } catch {
+            discard([folder])
+            throw error
         }
         return folder
     }
@@ -199,7 +206,7 @@ public enum Engine {
             }
             if session.status == .completed { return output }
             lastError = session.error ?? lastError
-            try? FileManager.default.removeItem(at: output)
+            discard([output])
         }
         throw lastError
     }
@@ -213,7 +220,12 @@ public enum Engine {
         default: throw ConversionError("Can’t convert audio to \(format.title).")
         }
         let output = outputURL(for: file, ext: format.rawValue)
-        try await shell("/usr/bin/afconvert", settings + [file.path, output.path])
+        do {
+            try await shell("/usr/bin/afconvert", settings + [file.path, output.path])
+        } catch {
+            discard([output])
+            throw error
+        }
         return output
     }
 
@@ -358,8 +370,13 @@ public enum Engine {
             } catch {
                 // Apple's AAC encoder only accepts certain bitrates for each sample rate and channel count
                 // (it rejects them with '!dat'); its default bitrate always works.
-                try? FileManager.default.removeItem(at: output)
-                try await shell("/usr/bin/afconvert", aac + [file.path, output.path])
+                discard([output])
+                do {
+                    try await shell("/usr/bin/afconvert", aac + [file.path, output.path])
+                } catch {
+                    discard([output])
+                    throw error
+                }
             }
             return output
         case .pdf:
@@ -502,6 +519,16 @@ public enum Engine {
         }
         let folder = outputURL(for: file, ext: nil, suffix: " (pages)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        do {
+            try writePages(of: document, into: folder)
+        } catch {
+            discard([folder])
+            throw error
+        }
+        return folder
+    }
+
+    private static func writePages(of document: PDFDocument, into folder: URL) throws {
         for index in 0..<document.pageCount {
             guard let page = document.page(at: index)?.copy() as? PDFPage else { continue }
             let single = PDFDocument()
@@ -509,7 +536,6 @@ public enum Engine {
             let destination = folder.appendingPathComponent(pageName(index + 1, of: document.pageCount)).appendingPathExtension("pdf")
             guard single.write(to: destination) else { throw ConversionError("Couldn’t save page \(index + 1).") }
         }
-        return folder
     }
 
     private static func mergePDF(_ files: [URL]) throws -> URL {
@@ -537,10 +563,15 @@ public enum Engine {
         if base.lowercased().hasSuffix(".tar") { base = String(base.dropLast(4)) }
         let folder = uniqueURL(in: file.deletingLastPathComponent(), base: base, ext: nil)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
-        if file.pathExtension.lowercased() == "zip" {
-            try await shell("/usr/bin/ditto", ["-x", "-k", file.path, folder.path])
-        } else {
-            try await shell("/usr/bin/tar", ["-xf", file.path, "-C", folder.path])
+        do {
+            if file.pathExtension.lowercased() == "zip" {
+                try await shell("/usr/bin/ditto", ["-x", "-k", file.path, folder.path])
+            } else {
+                try await shell("/usr/bin/tar", ["-xf", file.path, "-C", folder.path])
+            }
+        } catch {
+            discard([folder])
+            throw error
         }
         return folder
     }
@@ -556,7 +587,14 @@ public enum Engine {
             throw ConversionError("Zip files from one folder at a time.")
         }
         let output = uniqueURL(in: folder, base: "Archive", ext: "zip")
-        try await shell("/usr/bin/zip", ["-r", "-q", "-X", output.lastPathComponent] + files.map(\.lastPathComponent), in: folder)
+        // "./" keeps a name like "-m" from being read as zip's move-and-delete option; -nw stops zip expanding * and ? in names.
+        let names = files.map { "./" + $0.lastPathComponent }
+        do {
+            try await shell("/usr/bin/zip", ["-r", "-q", "-X", "-nw", output.lastPathComponent] + names, in: folder)
+        } catch {
+            discard([output])
+            throw error
+        }
         return output
     }
 
@@ -677,6 +715,13 @@ public enum Engine {
     }
 
     // MARK: Files
+
+    /// Deletes results Bloom created, so a failure never leaves a partial result beside the user's files.
+    private static func discard(_ outputs: [URL]) {
+        for output in outputs {
+            discard([output])
+        }
+    }
 
     private static func pageName(_ number: Int, of count: Int) -> String {
         let label = String(number)

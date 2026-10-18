@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import UniformTypeIdentifiers
 
@@ -276,21 +277,23 @@ public struct WheelItem: Identifiable {
 
 public enum WheelCatalog {
     /// The petals a flower offers for the dragged files: only what can actually work on all of them.
-    public static func items(for files: [URL], mode: Mode) -> [WheelItem] {
+    public static func items(for files: [URL], mode: Mode) async -> [WheelItem] {
         let kinds = files.map(FileKind.init)
         switch mode {
         case .convert:
-            return formats(for: kinds)
-                .filter { format in !files.allSatisfy(format.matches) }
-                .map { format in
-                    WheelItem(
-                        operation: .convert(format),
-                        title: format.title,
-                        symbol: format.symbol,
-                        detail: detail(for: format, kinds: kinds),
-                        progress: "Converting to \(format.title)…"
-                    )
-                }
+            var offered = formats(for: kinds).filter { format in !files.allSatisfy(format.matches) }
+            if offered.contains(.m4a), await !videosHaveAudio(files) {
+                offered.removeAll { $0 == .m4a }
+            }
+            return offered.map { format in
+                WheelItem(
+                    operation: .convert(format),
+                    title: format.title,
+                    symbol: format.symbol,
+                    detail: detail(for: format, kinds: kinds),
+                    progress: "Converting to \(format.title)…"
+                )
+            }
         case .tools:
             return Tool.allCases
                 .filter { $0.applies(to: kinds) }
@@ -306,6 +309,15 @@ public enum WheelCatalog {
             return QuickAction.allCases
                 .map { WheelItem(operation: .action($0), title: $0.title, symbol: $0.symbol, detail: $0.detail, progress: $0.progress) }
         }
+    }
+
+    /// Videos without a soundtrack, such as most screen recordings, can't become M4A.
+    private static func videosHaveAudio(_ files: [URL]) async -> Bool {
+        for file in files where FileKind(file) == .video {
+            let tracks = (try? await AVURLAsset(url: file).loadTracks(withMediaType: .audio)) ?? []
+            if tracks.isEmpty { return false }
+        }
+        return true
     }
 
     private static func formats(for kinds: [FileKind]) -> [Format] {

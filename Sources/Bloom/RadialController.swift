@@ -17,6 +17,7 @@ final class RadialModel: ObservableObject {
     }
 
     @Published var items: [WheelItem] = []
+    @Published var itemsLoaded = false
     @Published var highlighted: Int?
     @Published var phase: Phase = .choosing
     @Published var status: String?
@@ -32,6 +33,7 @@ final class RadialController {
     let model = RadialModel()
     private var files: [URL] = []
     private var hideTask: Task<Void, Never>?
+    private var presentation = 0
     private lazy var panel: NSPanel = makePanel()
 
     func present(mode: Mode, files: [URL]) {
@@ -40,7 +42,8 @@ final class RadialController {
         let isNewDrag = !panel.isVisible || !model.isVisible || model.phase != .choosing
         self.files = files
         model.mode = mode
-        model.items = WheelCatalog.items(for: files, mode: mode)
+        model.items = []
+        model.itemsLoaded = false
         model.highlighted = nil
         model.phase = .choosing
         model.status = nil
@@ -53,6 +56,14 @@ final class RadialController {
         panel.orderFrontRegardless()
         if !model.isVisible {
             Task { @MainActor in self.model.isVisible = true }
+        }
+        presentation += 1
+        let current = presentation
+        Task { @MainActor in
+            let items = await WheelCatalog.items(for: files, mode: mode)
+            guard current == self.presentation, self.model.phase == .choosing else { return }
+            self.model.items = items
+            self.model.itemsLoaded = true
         }
     }
 

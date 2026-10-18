@@ -44,4 +44,53 @@ final class FileSafetyTests: XCTestCase {
         XCTAssertEqual(outputs, [])
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["photo.jpg"])
     }
+
+    func testAFailedBatchLeavesNoResultsBehind() async throws {
+        let good = try Fixtures.image(in: folder)
+        let broken = folder.appendingPathComponent("broken.png")
+        try Data("not an image".utf8).write(to: broken)
+
+        let outputs = try? await Engine.convert([good, broken], to: .jpg)
+        XCTAssertNil(outputs, "Converting a broken image should fail")
+
+        XCTAssertEqual(try contents(), ["broken.png", "image.png"])
+    }
+
+    func testAFailedExtractLeavesNoFolderBehind() async throws {
+        let archive = folder.appendingPathComponent("broken.tar.gz")
+        try Data("not an archive".utf8).write(to: archive)
+
+        let outputs = try? await Engine.apply(.extract, to: [archive])
+        XCTAssertNil(outputs, "Extracting a broken archive should fail")
+
+        XCTAssertEqual(try contents(), ["broken.tar.gz"])
+    }
+
+    func testZipTreatsOptionLikeAndWildcardNamesAsFiles() async throws {
+        let names = ["-m", "*.txt", "notes.txt"]
+        let files = try names.map { try Fixtures.textFile(in: folder, name: $0, contents: Fixtures.text) }
+
+        let archive = try await Engine.apply(.zip, to: files)
+
+        for file in files {
+            XCTAssertTrue(FileManager.default.fileExists(atPath: file.path), "\(file.lastPathComponent) must still exist")
+        }
+        XCTAssertEqual(try zipEntries(archive[0]).sorted(), names.sorted())
+    }
+
+    private func contents() throws -> [String] {
+        try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
+    }
+
+    private func zipEntries(_ archive: URL) throws -> [String] {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        process.arguments = ["-Z1", archive.path]
+        process.standardOutput = output
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init)
+    }
 }

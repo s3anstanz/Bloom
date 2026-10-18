@@ -8,7 +8,7 @@ import XCTest
 /// Remove BG is covered separately because it depends on the Mac's Vision support.
 func assertEveryPetalWorks(for files: [URL], file: StaticString = #filePath, line: UInt = #line) async {
     for mode in [Mode.convert, .tools] {
-        for item in WheelCatalog.items(for: files, mode: mode) {
+        for item in await WheelCatalog.items(for: files, mode: mode) {
             if case .tool(.removeBackground) = item.operation { continue }
             let label = "\(files.map(\.lastPathComponent).joined(separator: " + ")) → \(item.title)"
             do {

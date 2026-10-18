@@ -85,6 +85,7 @@ struct FlowerView: View {
             return model.items[index].detail
         }
         if model.items.isEmpty {
+            guard model.itemsLoaded else { return nil }
             return model.mode == .convert ? "No conversions for this file" : "No tools for this file"
         }
         switch model.mode {
