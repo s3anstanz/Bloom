@@ -21,7 +21,7 @@ These instructions apply to every agent working in this repository, including Cl
 
 ## Rules
 
-- Every change lands through a pull request; the maintainer merges. CI (format, offline guard, warnings-as-errors build, tests, CodeQL) must pass.
+- Every change lands through a pull request; the maintainer merges. CI (format, offline guard, warnings-as-errors build, tests, CodeQL for workflow files) must pass. CodeQL for Swift runs on `main` after each merge and weekly; fix its findings in a follow-up pull request.
 - BloomCore never touches the network. Add no Swift packages.
 - New BloomCore behavior ships with tests that would fail if it broke. Assert results (files exist, open as their type, have the expected size or content), not implementation details.
 - Minimum macOS 13. Gate newer APIs with `#available` and hide the petal when unavailable.
