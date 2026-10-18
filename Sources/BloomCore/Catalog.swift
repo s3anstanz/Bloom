@@ -299,7 +299,8 @@ public enum WheelCatalog {
                         tool == .compress && kinds.allSatisfy({ $0 == .pdf })
                         ? "Shrink with macOS’s Reduce File Size filter"
                         : tool.detail
-                    return WheelItem(operation: .tool(tool), title: tool.title, symbol: tool.symbol, detail: detail, progress: tool.progress)
+                    return WheelItem(
+                        operation: .tool(tool), title: tool.title, symbol: tool.symbol, detail: detail, progress: tool.progress)
                 }
         case .actions:
             return QuickAction.allCases

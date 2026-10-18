@@ -45,7 +45,8 @@ final class RadialController {
         model.phase = .choosing
         model.status = nil
         model.fileCount = files.count
-        model.icon = files.count == 1
+        model.icon =
+            files.count == 1
             ? NSWorkspace.shared.icon(forFile: files[0].path)
             : NSWorkspace.shared.icon(forFiles: files.map(\.path))
         if isNewDrag { place(at: NSEvent.mouseLocation) }
@@ -74,8 +75,9 @@ final class RadialController {
 
     func performDrop() -> Bool {
         guard model.phase == .choosing,
-              let index = model.highlighted,
-              model.items.indices.contains(index) else { return false }
+            let index = model.highlighted,
+            model.items.indices.contains(index)
+        else { return false }
         let item = model.items[index]
         let files = self.files
         // DragWatcher can see the mouse-up first and start hiding the flower before this drop arrives.

@@ -49,7 +49,8 @@ final class FloatCardView: NSView {
 
         let icon = FileDragView(frame: NSRect(x: (FloatCardView.size.width - 72) / 2, y: 44, width: 72, height: 72))
         icon.files = files
-        icon.image = files.count == 1
+        icon.image =
+            files.count == 1
             ? NSWorkspace.shared.icon(forFile: files[0].path)
             : NSWorkspace.shared.icon(forFiles: files.map(\.path))
         icon.imageScaling = .scaleProportionallyUpOrDown

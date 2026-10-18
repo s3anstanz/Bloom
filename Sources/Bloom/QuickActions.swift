@@ -32,7 +32,8 @@ enum QuickActions {
             }
             let isFolder = (try? files[0].resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
             let folder = isFolder ? files[0] : files[0].deletingLastPathComponent()
-            NSWorkspace.shared.open([folder], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
+            NSWorkspace.shared.open(
+                [folder], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
             return "Opened in Terminal"
         }
     }

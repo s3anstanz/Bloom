@@ -1,5 +1,5 @@
-import AppKit
 import AVFoundation
+import AppKit
 import CoreImage
 import ImageIO
 import PDFKit
@@ -109,7 +109,8 @@ public enum Engine {
 
     private static func pdfToText(_ file: URL) throws -> URL {
         guard let text = PDFDocument(url: file)?.string,
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
             throw ConversionError("No text found. This PDF may be scanned images.")
         }
         let output = outputURL(for: file, ext: "txt")
@@ -189,7 +190,8 @@ public enum Engine {
         var lastError: Error = ConversionError("This file can’t be saved as \(ext.uppercased()).")
         for preset in presets {
             guard let session = AVAssetExportSession(asset: asset, presetName: preset),
-                  session.supportedFileTypes.contains(fileType) else { continue }
+                session.supportedFileTypes.contains(fileType)
+            else { continue }
             session.outputURL = output
             session.outputFileType = fileType
             await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
@@ -260,7 +262,8 @@ public enum Engine {
 
     private static func convertSubtitle(_ file: URL, to format: Format) throws -> URL {
         let raw = try (try? String(contentsOf: file, encoding: .utf8)) ?? String(contentsOf: file, encoding: .isoLatin1)
-        let lines = raw
+        let lines =
+            raw
             .trimmingCharacters(in: CharacterSet(charactersIn: "\u{FEFF}"))
             .replacingOccurrences(of: "\r\n", with: "\n")
             .components(separatedBy: "\n")
@@ -415,15 +418,17 @@ public enum Engine {
     }
 
     private static func grayscale(_ image: CGImage) throws -> CGImage {
-        guard let context = CGContext(
-            data: nil,
-            width: image.width,
-            height: image.height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceGray(),
-            bitmapInfo: CGImageAlphaInfo.none.rawValue
-        ) else { throw ConversionError("Couldn’t prepare the image.") }
+        guard
+            let context = CGContext(
+                data: nil,
+                width: image.width,
+                height: image.height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceGray(),
+                bitmapInfo: CGImageAlphaInfo.none.rawValue
+            )
+        else { throw ConversionError("Couldn’t prepare the image.") }
         let rect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(rect)
@@ -459,7 +464,9 @@ public enum Engine {
         let composition = AVMutableComposition()
         var videoTracks = 0
         for track in try await asset.loadTracks(withMediaType: .video) {
-            guard let copy = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { continue }
+            guard let copy = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+                continue
+            }
             let range = try await track.load(.timeRange)
             try copy.insertTimeRange(range, of: track, at: range.start)
             copy.preferredTransform = try await track.load(.preferredTransform)
@@ -557,9 +564,10 @@ public enum Engine {
 
     private static func loadImage(_ file: URL, scale: Double = 1, maxPixelSize: Int? = nil) throws -> CGImage {
         if let source = CGImageSourceCreateWithURL(file as CFURL, nil),
-           let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-           let width = properties[kCGImagePropertyPixelWidth] as? Int,
-           let height = properties[kCGImagePropertyPixelHeight] as? Int {
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+            let width = properties[kCGImagePropertyPixelWidth] as? Int,
+            let height = properties[kCGImagePropertyPixelHeight] as? Int
+        {
             var size = Int(Double(max(width, height)) * scale)
             if let maxPixelSize { size = min(size, maxPixelSize) }
             // A full-size "thumbnail" applies the EXIF orientation so photos stay upright.
@@ -597,15 +605,17 @@ public enum Engine {
         default:
             break
         }
-        guard let context = CGContext(
-            data: nil,
-            width: image.width,
-            height: image.height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
-        ) else { throw ConversionError("Couldn’t prepare the image.") }
+        guard
+            let context = CGContext(
+                data: nil,
+                width: image.width,
+                height: image.height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            )
+        else { throw ConversionError("Couldn’t prepare the image.") }
         let rect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(rect)
@@ -614,15 +624,17 @@ public enum Engine {
     }
 
     private static func canvas(width: Int, height: Int) throws -> CGContext {
-        guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { throw ConversionError("Couldn’t prepare the image.") }
+        guard
+            let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { throw ConversionError("Couldn’t prepare the image.") }
         context.interpolationQuality = .high
         return context
     }
@@ -643,20 +655,23 @@ public enum Engine {
     private static func render(_ page: CGPDFPage, scale: CGFloat = 2) throws -> CGImage {
         let box = page.getBoxRect(.cropBox)
         let size = page.rotationAngle % 180 == 0 ? box.size : CGSize(width: box.height, height: box.width)
-        guard let context = CGContext(
-            data: nil,
-            width: Int(size.width * scale),
-            height: Int(size.height * scale),
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
-        ) else { throw ConversionError("Couldn’t render this PDF.") }
+        guard
+            let context = CGContext(
+                data: nil,
+                width: Int(size.width * scale),
+                height: Int(size.height * scale),
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            )
+        else { throw ConversionError("Couldn’t render this PDF.") }
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: context.width, height: context.height))
         context.interpolationQuality = .high
         context.scaleBy(x: scale, y: scale)
-        context.concatenate(page.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: size), rotate: 0, preserveAspectRatio: true))
+        context.concatenate(
+            page.getDrawingTransform(.cropBox, rect: CGRect(origin: .zero, size: size), rotate: 0, preserveAspectRatio: true))
         context.drawPDFPage(page)
         return try snapshot(context)
     }
