@@ -3,8 +3,22 @@
 import glob
 import json
 import os
+import time
 
-for path in sorted(glob.glob(os.path.expanduser("~/Library/Logs/DiagnosticReports/*.ips"))):
+PATTERNS = [os.path.expanduser("~/Library/Logs/DiagnosticReports/**/*.ips"), "/Library/Logs/DiagnosticReports/**/*.ips"]
+
+
+def reports():
+    return sorted({path for pattern in PATTERNS for path in glob.glob(pattern, recursive=True)})
+
+
+# ReportCrash writes the report a few seconds after the process dies.
+for _ in range(30):
+    if reports():
+        break
+    time.sleep(1)
+
+for path in reports():
     with open(path) as report:
         header = json.loads(report.readline())
         try:

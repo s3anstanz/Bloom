@@ -43,6 +43,8 @@ jobs:
 
       - name: Test
         run: swift test
+        env:
+          SWIFT_BACKTRACE: enable=yes,sanitize=no,threads=crashed
 
       - name: Crash reports
         if: failure()
