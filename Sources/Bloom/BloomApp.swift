@@ -1,15 +1,61 @@
 import AppKit
 import BloomCore
+import ServiceManagement
 import SwiftUI
 
 @main
 struct BloomApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
         MenuBarExtra("Bloom", systemImage: "camera.macro") {
-            Text("Bloom \(BloomCore.version)")
-            Divider()
-            Button("Quit Bloom") { NSApp.terminate(nil) }
-                .keyboardShortcut("q")
+            StatusMenu()
         }
+    }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private var watcher: DragWatcher?
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
+        let watcher = DragWatcher(radial: RadialController())
+        watcher.start()
+        self.watcher = watcher
+    }
+}
+
+private struct StatusMenu: View {
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @AppStorage(CompressionSetting.key) private var compressionLevel = 50
+
+    var body: some View {
+        Text("While dragging a file, tap:")
+        Text("⇧  Convert")
+        Text("⌘  Tools")
+        Text("⌃  Actions")
+        Divider()
+        Picker("Compress To", selection: $compressionLevel) {
+            ForEach(CompressionSetting.choices, id: \.self) { level in
+                Text("\(level)%").tag(level)
+            }
+        }
+        Toggle("Launch at Login", isOn: $launchAtLogin)
+            .onChange(of: launchAtLogin) { enabled in
+                do {
+                    if enabled {
+                        try SMAppService.mainApp.register()
+                    } else {
+                        try SMAppService.mainApp.unregister()
+                    }
+                } catch {
+                    launchAtLogin = SMAppService.mainApp.status == .enabled
+                }
+            }
+        Divider()
+        Text("Bloom \(BloomCore.version)")
+        Button("Quit Bloom") { NSApp.terminate(nil) }
+            .keyboardShortcut("q")
     }
 }
