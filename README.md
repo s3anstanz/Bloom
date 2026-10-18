@@ -57,7 +57,7 @@ When several files are dragged together, the flower offers the conversions they 
 | Split | PDFs (one PDF per page) |
 | Merge PDF | Two or more PDFs and/or images |
 | Extract | ZIP, TAR, TGZ and other archives |
-| Zip | Anything, including folders |
+| Zip | Anything, including folders, as long as everything dragged is in one folder |
 
 ### ⌃ Actions
 

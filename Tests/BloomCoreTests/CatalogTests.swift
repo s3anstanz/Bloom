@@ -63,6 +63,13 @@ final class CatalogTests: XCTestCase {
         XCTAssertEqual(tools, ["Zip"])
     }
 
+    func testZipNeedsEverythingInOneFolder() async {
+        let oneFolder = await titles(["notes.txt", "photo.png"], .tools)
+        let twoFolders = await titles(["notes.txt", "Desktop/photo.png"], .tools)
+        XCTAssertTrue(oneFolder.contains("Zip"))
+        XCTAssertFalse(twoFolders.contains("Zip"))
+    }
+
     func testMergePDFNeedsTwoOrMorePDFsOrImages() async {
         let single = await titles(["report.pdf"], .tools)
         let withImage = await titles(["report.pdf", "photo.png"], .tools)

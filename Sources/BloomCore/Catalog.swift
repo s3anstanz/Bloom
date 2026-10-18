@@ -192,7 +192,7 @@ public enum Tool: CaseIterable {
         }
     }
 
-    func applies(to kinds: [FileKind]) -> Bool {
+    func applies(to files: [URL], kinds: [FileKind]) -> Bool {
         let all = { (allowed: Set<FileKind>) in kinds.allSatisfy { allowed.contains($0) } }
         switch self {
         case .compress: return all([.image, .video, .audio, .pdf])
@@ -205,7 +205,7 @@ public enum Tool: CaseIterable {
         case .splitPages: return all([.pdf])
         case .mergePDF: return kinds.count > 1 && all([.pdf, .image])
         case .extract: return all([.archive])
-        case .zip: return true
+        case .zip: return Set(files.map { $0.deletingLastPathComponent().path }).count == 1
         }
     }
 }
@@ -296,7 +296,7 @@ public enum WheelCatalog {
             }
         case .tools:
             return Tool.allCases
-                .filter { $0.applies(to: kinds) }
+                .filter { $0.applies(to: files, kinds: kinds) }
                 .map { tool -> WheelItem in
                     let detail =
                         tool == .compress && kinds.allSatisfy({ $0 == .pdf })

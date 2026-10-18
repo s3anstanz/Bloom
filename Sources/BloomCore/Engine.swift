@@ -105,7 +105,10 @@ public enum Engine {
         let document = PDFDocument()
         try appendImage(file, to: document)
         let output = outputURL(for: file, ext: "pdf")
-        guard document.write(to: output) else { throw ConversionError("Couldn’t save the PDF.") }
+        guard document.write(to: output) else {
+            discard([output])
+            throw ConversionError("Couldn’t save the PDF.")
+        }
         return output
     }
 
@@ -165,12 +168,17 @@ public enum Engine {
         }
         CGImageDestinationSetProperties(gif, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
         let frameProperties = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: 1 / fps]] as CFDictionary
-        for index in 0..<frameCount {
-            let time = CMTime(seconds: Double(index) / fps, preferredTimescale: 600)
-            let frame = try await generator.image(at: time).image
-            CGImageDestinationAddImage(gif, frame, frameProperties)
+        do {
+            for index in 0..<frameCount {
+                let time = CMTime(seconds: Double(index) / fps, preferredTimescale: 600)
+                let frame = try await generator.image(at: time).image
+                CGImageDestinationAddImage(gif, frame, frameProperties)
+            }
+            guard CGImageDestinationFinalize(gif) else { throw ConversionError("Couldn’t save the GIF.") }
+        } catch {
+            discard([output])
+            throw error
         }
-        guard CGImageDestinationFinalize(gif) else { throw ConversionError("Couldn’t save the GIF.") }
         return output
     }
 
@@ -235,7 +243,12 @@ public enum Engine {
         if UTType(filenameExtension: file.pathExtension)?.conforms(to: .plainText) == true {
             arguments += ["-format", "txt"]
         }
-        try await shell("/usr/bin/textutil", arguments + [file.path])
+        do {
+            try await shell("/usr/bin/textutil", arguments + [file.path])
+        } catch {
+            discard([output])
+            throw error
+        }
         return output
     }
 
@@ -385,6 +398,7 @@ public enum Engine {
         guard let filter = reduceFileSize else { throw ConversionError("macOS’s Reduce File Size filter is missing.") }
         let output = outputURL(for: file, ext: "pdf", suffix: " (compressed)")
         guard document.write(to: output, withOptions: [PDFDocumentWriteOption(rawValue: "QuartzFilter"): filter]) else {
+            discard([output])
             throw ConversionError("Couldn’t save the compressed PDF.")
         }
         return output
@@ -493,7 +507,10 @@ public enum Engine {
             }
         }
         let output = outputURL(for: file, ext: "pdf", suffix: " (rotated)")
-        guard document.write(to: output) else { throw ConversionError("Couldn’t save the PDF.") }
+        guard document.write(to: output) else {
+            discard([output])
+            throw ConversionError("Couldn’t save the PDF.")
+        }
         return output
     }
 
@@ -538,7 +555,10 @@ public enum Engine {
             }
         }
         let output = uniqueURL(in: sorted[0].deletingLastPathComponent(), base: "Merged", ext: "pdf")
-        guard merged.write(to: output) else { throw ConversionError("Couldn’t save the merged PDF.") }
+        guard merged.write(to: output) else {
+            discard([output])
+            throw ConversionError("Couldn’t save the merged PDF.")
+        }
         return output
     }
 
@@ -564,7 +584,12 @@ public enum Engine {
         let folder = files[0].deletingLastPathComponent()
         if files.count == 1 {
             let output = uniqueURL(in: folder, base: files[0].lastPathComponent, ext: "zip")
-            try await shell("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", files[0].path, output.path])
+            do {
+                try await shell("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", files[0].path, output.path])
+            } catch {
+                discard([output])
+                throw error
+            }
             return output
         }
         guard files.allSatisfy({ $0.deletingLastPathComponent().path == folder.path }) else {
@@ -616,7 +641,10 @@ public enum Engine {
             throw ConversionError("This Mac can’t write \(type.preferredFilenameExtension?.uppercased() ?? "this format").")
         }
         CGImageDestinationAddImage(destination, finalImage, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
-        guard CGImageDestinationFinalize(destination) else { throw ConversionError("Couldn’t save the image.") }
+        guard CGImageDestinationFinalize(destination) else {
+            discard([output])
+            throw ConversionError("Couldn’t save the image.")
+        }
     }
 
     /// Puts transparent images on white so JPEG and BMP output doesn't turn transparency black.

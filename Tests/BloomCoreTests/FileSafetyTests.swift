@@ -66,6 +66,17 @@ final class FileSafetyTests: XCTestCase {
         XCTAssertEqual(try contents(), ["broken.tar.gz"])
     }
 
+    func testAFailedZipLeavesNoArchiveBehind() async throws {
+        let directory = try Fixtures.directory(in: folder)
+        let locked = try Fixtures.textFile(in: directory, name: "locked.txt", contents: Fixtures.text)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: locked.path)
+
+        let outputs = try? await Engine.apply(.zip, to: [directory])
+        XCTAssertNil(outputs, "Zipping a folder with an unreadable file should fail")
+
+        XCTAssertEqual(try contents(), ["Sample Folder"])
+    }
+
     func testZipTreatsOptionLikeAndWildcardNamesAsFiles() async throws {
         let names = ["-m", "*.txt", "notes.txt"]
         let files = try names.map { try Fixtures.textFile(in: folder, name: $0, contents: Fixtures.text) }
