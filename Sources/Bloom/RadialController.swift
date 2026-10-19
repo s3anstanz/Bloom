@@ -99,14 +99,17 @@ final class RadialController {
     /// `offset` is the cursor position relative to the flower's center, y pointing up.
     @discardableResult
     func hover(_ offset: CGPoint?) -> Bool {
-        // After the button comes up the flower folds, but the drag can still report the pointer before it delivers the
-        // drop. Keeping the petal it was on lets that drop land; with no petal lit, AppKit would cancel it.
-        guard model.timeline.closed == nil else { return model.highlighted != nil }
-        hoverTab(offset.flatMap { tab(at: $0) })
+        // After the button comes up the flower folds, but the drag can still report where it was let go before it
+        // delivers the drop. Petals keep answering so that drop lands on the petal under it; AppKit cancels a drop
+        // whose last report found none. Tabs stop switching flowers.
+        let isFolding = model.timeline.closed != nil
+        if !isFolding {
+            hoverTab(offset.flatMap { tab(at: $0) })
+        }
         let index = offset.flatMap { itemIndex(at: $0) }
         if index != model.highlighted {
             model.highlighted = index
-            if index != nil {
+            if index != nil, !isFolding {
                 NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
             }
         }
