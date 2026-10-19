@@ -62,7 +62,8 @@ enum Journeys {
             let half = try await session.expectFile("photo (50%).jpg")
             try session.expectImage(half, type: .jpeg, width: 320, height: 240)
         },
-        // The first flower after launch once switched tabs without showing it, until the next drag.
+        // The first flower after launch once switched tabs without showing it, until the next drag. The drop lands by
+        // where petals sit either way, so the check is what the screen shows.
         Journey(name: "switch-on-first-drag", title: "Switch to Tools with the tabs on the first drag after Bloom opens") { session in
             let photo = try session.image("photo.jpg")
             try await session.relaunchBloom()
@@ -71,6 +72,7 @@ enum Journeys {
             try await session.tap(.shift)
             try await session.point(atTab: .tools)
             try await session.point(at: "Half Size", in: .tools, files: [photo])
+            try await session.expectTab(.tools)
             try await session.drop()
             let half = try await session.expectFile("photo (50%).jpg")
             try session.expectImage(half, type: .jpeg, width: 320, height: 240)
