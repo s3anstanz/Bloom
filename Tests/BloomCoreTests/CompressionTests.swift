@@ -52,10 +52,10 @@ final class CompressionTests: XCTestCase {
     }
 
     func testEachAudioSizeMakesASmallerFileThanTheNext() async throws {
-        let tone = try Fixtures.audio(in: folder, seconds: 4)
+        let hiss = try Fixtures.audio(in: folder, name: "hiss.wav", seconds: 4, noise: true)
         var sizes: [Int] = []
         for level in CompressionLevel.allCases {
-            let outputs = try await Engine.compress([tone], level: level)
+            let outputs = try await Engine.compress([hiss], level: level)
             sizes.append(try size(try XCTUnwrap(outputs.first)))
         }
         XCTAssertEqual(sizes, sizes.sorted())

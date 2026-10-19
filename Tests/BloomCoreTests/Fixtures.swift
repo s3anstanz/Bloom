@@ -119,13 +119,14 @@ enum Fixtures {
         return url
     }
 
-    /// A 440 Hz tone as 16-bit WAV.
+    /// A 440 Hz tone as 16-bit WAV, or white noise, which an encoder can't squeeze below the bitrate it's given.
     static func audio(
         in folder: URL,
         name: String = "tone.wav",
         sampleRate: Double = 44_100,
         channels: AVAudioChannelCount = 2,
-        seconds: Double = 1
+        seconds: Double = 1,
+        noise: Bool = false
     ) throws -> URL {
         let url = folder.appendingPathComponent(name)
         let settings: [String: Any] = [
@@ -145,8 +146,11 @@ enum Fixtures {
                 let samples = buffer.floatChannelData
             else { throw FixtureError("Couldn’t create the sample audio.") }
             buffer.frameLength = frames
+            var seed: UInt32 = 1
             for frame in 0..<Int(frames) {
-                let value = Float(sin(2 * Double.pi * 440 * Double(frame) / sampleRate) * 0.5)
+                seed = seed &* 1_664_525 &+ 1_013_904_223
+                let tone = Float(sin(2 * Double.pi * 440 * Double(frame) / sampleRate) * 0.5)
+                let value = noise ? Float(seed >> 8) / Float(1 << 24) - 0.5 : tone
                 for channel in 0..<Int(channels) {
                     samples[channel][frame] = value
                 }
