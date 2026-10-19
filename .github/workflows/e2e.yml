@@ -49,13 +49,12 @@ jobs:
         # Pull requests from forks and Dependabot get a read-only token, which can't publish.
         if: >-
           always()
-          && github.event_name == 'pull_request'
-          && github.event.pull_request.head.repo.full_name == github.repository
-          && github.actor != 'dependabot[bot]'
+          && (github.event_name == 'push'
+            || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'))
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: .github/scripts/publish-images.sh e2e "$RUNNER_TEMP/e2e"
 
       - name: Upload the screenshots

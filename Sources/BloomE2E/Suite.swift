@@ -25,11 +25,13 @@ final class Suite {
 
     /// Plays every journey, or only the named ones, and writes `summary.md` with each journey's result and screenshots.
     func run(only names: Set<String>) async -> Bool {
-        let journeys = Journeys.all.filter { names.isEmpty || names.contains($0.name) }
-        guard !journeys.isEmpty else {
-            print("No journey is called \(names.sorted().joined(separator: ", ")).")
+        let unknown = names.subtracting(Journeys.all.map(\.name))
+        guard unknown.isEmpty else {
+            print("No journey is called \(unknown.sorted().joined(separator: ", ")).")
+            print("Journeys: \(Journeys.all.map(\.name).joined(separator: ", ")).")
             return false
         }
+        let journeys = Journeys.all.filter { names.isEmpty || names.contains($0.name) }
         do {
             try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
             try await Session.waitForBloom()

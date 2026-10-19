@@ -3,13 +3,16 @@
 #   preview: posts <folder>/preview.md as a comment on the pull request, editing the earlier one;
 #   e2e: adds <folder>/summary.md to the job summary.
 # Usage: .github/scripts/publish-images.sh preview|e2e <folder>
-# Needs GH_TOKEN, GITHUB_REPOSITORY, PR_NUMBER and HEAD_SHA in the environment.
+# Needs GH_TOKEN, GITHUB_REPOSITORY and HEAD_SHA in the environment, and PR_NUMBER on pull requests;
+# without it the images go under main/.
 set -euo pipefail
 shopt -s nullglob
 
 KIND="$1"
 SOURCE="$2"
-FOLDER="pr-$PR_NUMBER/$KIND/${HEAD_SHA:0:7}"
+PREFIX="main"
+if [ -n "${PR_NUMBER:-}" ]; then PREFIX="pr-$PR_NUMBER"; fi
+FOLDER="$PREFIX/$KIND/${HEAD_SHA:0:7}"
 IMAGES=("$SOURCE"/*.gif "$SOURCE"/*.png)
 if [ ${#IMAGES[@]} -eq 0 ]; then
   echo "No images in $SOURCE to publish."
@@ -38,14 +41,14 @@ prepare() {
     [ -d "$dir" ] || continue
     if ! grep -qx "${dir##*/pr-}" <<<"$OPEN"; then rm -rf "$dir"; fi
   done
-  rm -rf "$WORK/pr-$PR_NUMBER/$KIND"
+  rm -rf "${WORK:?}/$PREFIX/$KIND"
   mkdir -p "$WORK/$FOLDER"
   cp "${IMAGES[@]}" "$WORK/$FOLDER/"
   cat >"$WORK/README.md" <<'EOF'
 # Previews
 
-Images for open pull requests, one folder each: `preview` holds the flower GIFs from the Preview workflow
-(`.github/workflows/preview.yml`) and `e2e` the screenshots from the end-to-end journeys
+Images for open pull requests, one folder each, and for the latest run on `main`: `preview` holds the flower GIFs
+from the Preview workflow (`.github/workflows/preview.yml`) and `e2e` the screenshots from the end-to-end journeys
 (`.github/workflows/e2e.yml`). Every run replaces this branch with a single commit, so cloning Bloom stays small.
 EOF
   git -C "$WORK" add -A
