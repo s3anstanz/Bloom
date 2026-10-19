@@ -217,15 +217,8 @@ final class RadialController {
             do {
                 let message: String
                 switch item.operation {
-                case .convert(let format):
-                    let outputs = try await Engine.convert(files, to: format)
-                    message = Self.savedMessage(outputs)
-                case .tool(let tool):
-                    let outputs = try await Engine.apply(tool, to: files)
-                    message = Self.savedMessage(outputs)
-                case .compress(let level):
-                    let outputs = try await Engine.compress(files, level: level)
-                    message = Self.savedMessage(outputs)
+                case .convert, .tool, .compress:
+                    message = Self.savedMessage(try await Engine.run(item.operation, on: files) ?? [])
                 case .action(let action):
                     if action == .move { self.hideNow() }
                     guard let result = try await QuickActions.run(action, on: files) else {

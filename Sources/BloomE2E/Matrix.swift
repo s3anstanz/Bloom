@@ -2,14 +2,6 @@ import AppKit
 import BloomCore
 import BloomFixtures
 
-/// A file, or a selection of files, that the matrix drops on every petal Bloom offers for it.
-struct Sample {
-    let name: String
-    /// Also tries each petal in the Actions flower, which offers the same six for any file.
-    var actions = false
-    let make: @MainActor (URL) async throws -> [URL]
-}
-
 /// How one petal did with one sample.
 struct Outcome {
     enum Verdict {
@@ -33,54 +25,15 @@ struct Outcome {
 /// Drags each sample out of Finder onto every petal of every flower, one drop at a time, and checks what each one does.
 @MainActor
 enum Matrix {
-    static let samples: [Sample] = [
-        // A circle and a box, so Remove BG has a subject to cut out; the journeys compress a detailed photo.
-        Sample(name: "JPEG picture", actions: true) { [try Fixtures.image(in: $0, name: "picture.jpg", type: .jpeg, transparent: false)] },
-        Sample(name: "PNG with transparency") { [try Fixtures.image(in: $0)] },
-        Sample(name: "PDF") { [try Fixtures.pdf(in: $0)] },
-        Sample(name: "Video with sound") { [try await Fixtures.video(in: $0, detailed: true)] },
-        Sample(name: "Screen recording without sound") { [try await Fixtures.silentVideo(in: $0)] },
-        Sample(name: "WAV audio") { [try Fixtures.audio(in: $0, seconds: 2, noise: true)] },
-        Sample(name: "Plain text") { [try Fixtures.textFile(in: $0, name: "notes.txt", contents: Fixtures.text)] },
-        Sample(name: "RTF") { [try Fixtures.rtf(in: $0)] },
-        Sample(name: "HTML") {
-            [try Fixtures.textFile(in: $0, name: "page.html", contents: "<html><body><h1>Bloom</h1><p>\(Fixtures.text)</p></body></html>")]
-        },
-        Sample(name: "Word") { [try Fixtures.document(in: $0, name: "letter.docx", type: .officeOpenXML)] },
-        Sample(name: "OpenDocument") { [try Fixtures.document(in: $0, name: "letter.odt", type: .openDocument)] },
-        Sample(name: "SRT subtitles") { [try Fixtures.textFile(in: $0, name: "captions.srt", contents: Fixtures.srt)] },
-        Sample(name: "WebVTT subtitles") { [try Fixtures.textFile(in: $0, name: "captions.vtt", contents: Fixtures.vtt)] },
-        Sample(name: "Tarball") { folder in
-            let notes = try Fixtures.textFile(in: folder, name: "notes.txt", contents: Fixtures.text)
-            let tarball = try Fixtures.tarball(in: folder, containing: notes)
-            try FileManager.default.removeItem(at: notes)
-            return [tarball]
-        },
-        Sample(name: "Folder", actions: true) { [try Fixtures.directory(in: $0)] },
-        Sample(name: "PDF and PNG", actions: true) { [try Fixtures.pdf(in: $0), try Fixtures.image(in: $0)] },
-        Sample(name: "Text and photo") {
-            [
-                try Fixtures.textFile(in: $0, name: "notes.txt", contents: Fixtures.text),
-                try Fixtures.image(in: $0, name: "photo.jpg", type: .jpeg, transparent: false),
-            ]
-        },
-    ]
-
-    /// Every sample, or those whose name contains one of `filters`, ignoring case.
-    static func samples(matching filters: Set<String>) -> [Sample] {
-        guard !filters.isEmpty else { return samples }
-        return samples.filter { sample in filters.contains { sample.name.localizedCaseInsensitiveContains($0) } }
-    }
-
     static func run(_ sample: Sample, number: Int, output: URL) async -> [Outcome] {
         let session = Session(journey: "matrix-\(number)", output: output)
         session.stepShots = false
         var files: [URL]
-        var originals: [String: Data]
+        var originals: Originals
         do {
             try session.start()
             files = try await sample.make(session.folder)
-            originals = snapshot(files)
+            originals = Originals(files)
             try await session.openInFinder()
         } catch {
             let detail = "Couldn’t set up the sample: \(error.localizedDescription)"
@@ -100,17 +53,17 @@ enum Matrix {
                     await session.screenshotAfterFailure()
                 }
                 await session.finish()
-                if let problem = changed(files, from: originals) {
+                if let problem = originals.change(in: files) {
                     outcome = (.failed, outcome.0 == .failed ? "\(outcome.1) \(problem)" : problem)
                 }
                 clearResults(besides: files, in: session.folder)
                 // Bring a sample back if a failure took it away, so one failure doesn't fail every petal after it.
-                if changed(files, from: originals) != nil {
+                if originals.change(in: files) != nil {
                     try? FileManager.default.removeItem(at: session.folder)
                     try? FileManager.default.createDirectory(at: session.folder, withIntermediateDirectories: true)
                     if let remade = try? await sample.make(session.folder) {
                         files = remade
-                        originals = snapshot(remade)
+                        originals = Originals(remade)
                     }
                 }
                 print("\(outcome.0 == .failed ? "FAIL" : "PASS") \(sample.name) · \(petal.label): \(outcome.1)")
@@ -260,39 +213,5 @@ enum Matrix {
         for result in results(besides: files, in: folder) {
             try? FileManager.default.removeItem(at: result)
         }
-    }
-
-    /// The bytes of every file in the sample, a folder's included, by its path inside the sample's folder.
-    private static func snapshot(_ files: [URL]) -> [String: Data] {
-        var contents: [String: Data] = [:]
-        for file in files {
-            let parent = file.deletingLastPathComponent().path + "/"
-            var paths = [file]
-            // Finder's hidden .DS_Store files come and go with the windows it shows, so they don't count.
-            if let walk = FileManager.default.enumerator(at: file, includingPropertiesForKeys: nil, options: .skipsHiddenFiles) {
-                paths += walk.compactMap { $0 as? URL }
-            }
-            for path in paths where !path.hasDirectoryPath || path == file {
-                if let data = try? Data(contentsOf: path) {
-                    contents[String(path.path.dropFirst(parent.count))] = data
-                }
-            }
-        }
-        return contents
-    }
-
-    /// Why the sample isn't as it was, or nil when every file, and everything in a folder, is there and unchanged.
-    private static func changed(_ files: [URL], from originals: [String: Data]) -> String? {
-        for file in files where !FileManager.default.fileExists(atPath: file.path) {
-            return "\(file.lastPathComponent) is gone."
-        }
-        let now = snapshot(files)
-        if let path = originals.keys.sorted().first(where: { now[$0] != originals[$0] }) {
-            return now[path] == nil ? "\(path) is gone." : "\(path) was changed."
-        }
-        if let added = now.keys.sorted().first(where: { originals[$0] == nil }) {
-            return "\(added) appeared inside the sample."
-        }
-        return nil
     }
 }

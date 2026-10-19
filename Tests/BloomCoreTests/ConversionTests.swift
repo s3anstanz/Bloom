@@ -17,66 +17,13 @@ final class ConversionTests: XCTestCase {
         try FileManager.default.removeItem(at: folder)
     }
 
-    func testEveryImagePetalWorks() async throws {
-        let png = try Fixtures.image(in: folder)
-        let jpg = try Fixtures.image(in: folder, name: "photo.jpg", type: .jpeg, transparent: false)
-        await assertEveryPetalWorks(for: [png])
-        await assertEveryPetalWorks(for: [jpg])
-    }
-
-    func testEveryDocumentPetalWorks() async throws {
-        let txt = try Fixtures.textFile(in: folder, name: "notes.txt", contents: Fixtures.text)
-        let rtf = try Fixtures.rtf(in: folder)
-        let html = try Fixtures.textFile(
-            in: folder,
-            name: "page.html",
-            contents: "<html><body><h1>Bloom</h1><p>\(Fixtures.text)</p></body></html>"
-        )
-        let docx = try Fixtures.document(in: folder, name: "letter.docx", type: .officeOpenXML)
-        let odt = try Fixtures.document(in: folder, name: "letter.odt", type: .openDocument)
-        for document in [txt, rtf, html, docx, odt] {
-            await assertEveryPetalWorks(for: [document])
+    /// The petal matrix's samples, so every kind of file it drops through the app is converted here on every pull request.
+    func testEveryPetalWorksOnEverySample() async throws {
+        for sample in Samples.all {
+            let own = folder.appendingPathComponent(sample.name)
+            try FileManager.default.createDirectory(at: own, withIntermediateDirectories: true)
+            await assertEveryPetalWorks(for: try await sample.make(own))
         }
-    }
-
-    func testEveryPDFPetalWorks() async throws {
-        let pdf = try Fixtures.pdf(in: folder)
-        await assertEveryPetalWorks(for: [pdf])
-    }
-
-    func testEveryAudioPetalWorks() async throws {
-        let tone = try Fixtures.audio(in: folder)
-        await assertEveryPetalWorks(for: [tone])
-    }
-
-    func testEveryVideoPetalWorks() async throws {
-        let clip = try await Fixtures.video(in: folder)
-        await assertEveryPetalWorks(for: [clip])
-    }
-
-    func testEverySubtitlePetalWorks() async throws {
-        let srt = try Fixtures.textFile(in: folder, name: "captions.srt", contents: Fixtures.srt)
-        let vtt = try Fixtures.textFile(in: folder, name: "captions.vtt", contents: Fixtures.vtt)
-        await assertEveryPetalWorks(for: [srt])
-        await assertEveryPetalWorks(for: [vtt])
-    }
-
-    func testArchiveAndFolderPetalsWork() async throws {
-        let notes = try Fixtures.textFile(in: folder, name: "notes.txt", contents: Fixtures.text)
-        let tarball = try Fixtures.tarball(in: folder, containing: notes)
-        let directory = try Fixtures.directory(in: folder)
-        await assertEveryPetalWorks(for: [tarball])
-        await assertEveryPetalWorks(for: [directory])
-    }
-
-    func testMultiFilePetalsWork() async throws {
-        let pdf = try Fixtures.pdf(in: folder)
-        let png = try Fixtures.image(in: folder)
-        await assertEveryPetalWorks(for: [pdf, png])
-
-        let notes = try Fixtures.textFile(in: folder, name: "notes.txt", contents: Fixtures.text)
-        let photo = try Fixtures.image(in: folder, name: "photo.jpg", type: .jpeg, transparent: false)
-        await assertEveryPetalWorks(for: [notes, photo])
     }
 
     func testMergePDFKeepsEveryPage() async throws {

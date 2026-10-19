@@ -1,4 +1,5 @@
 import BloomCore
+import BloomFixtures
 import Foundation
 
 /// One thing someone does with Bloom, played on the real app with Finder as the drag source.
@@ -30,11 +31,11 @@ final class Suite {
         let known = Set(Journeys.all.map(\.name))
         let journeys = Journeys.all.filter { names.isEmpty || names.contains($0.name) }
         let filters = names.subtracting(known)
-        let samples = matrix && (names.isEmpty || !filters.isEmpty) ? Matrix.samples(matching: filters) : []
+        let samples = matrix && (names.isEmpty || !filters.isEmpty) ? Samples.matching(filters) : []
         guard !journeys.isEmpty || !samples.isEmpty else {
             print("Nothing matches \(names.sorted().joined(separator: ", ")).")
             print("Journeys: \(Journeys.all.map(\.name).joined(separator: ", ")).")
-            print("Matrix samples (with --matrix): \(Matrix.samples.map(\.name).joined(separator: ", ")).")
+            print("Matrix samples (with --matrix): \(Samples.all.map(\.name).joined(separator: ", ")).")
             return false
         }
         do {

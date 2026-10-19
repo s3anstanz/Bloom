@@ -19,6 +19,17 @@ public struct ConversionError: LocalizedError {
 
 /// Every conversion and tool runs locally with macOS frameworks and built-in command-line tools.
 public enum Engine {
+    /// Runs a Convert or Tools petal on what was dropped on it and returns what it saved. The app's drop and the tests
+    /// both go through here, so the tests run what a drop runs. Actions run in the app, so they return nil.
+    public static func run(_ operation: WheelItem.Operation, on files: [URL]) async throws -> [URL]? {
+        switch operation {
+        case .convert(let format): return try await convert(files, to: format)
+        case .tool(let tool): return try await apply(tool, to: files)
+        case .compress(let level): return try await compress(files, level: level)
+        case .action: return nil
+        }
+    }
+
     public static func convert(_ files: [URL], to format: Format) async throws -> [URL] {
         var outputs: [URL] = []
         for file in files where !format.matches(file) {
