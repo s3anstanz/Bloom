@@ -52,9 +52,10 @@ classify() {
       echo "3 - the package and its targets" ;;
     .github/workflows/e2e.yml | .github/workflows/test-plan.yml | scripts/test-plan.sh)
       echo "3 - how the end-to-end tests run" ;;
-    Sources/Bloom/FlowerView.swift | Sources/Bloom/MenuBarIcon.swift | Sources/BloomCore/FlowerMotion.swift | \
-      Sources/BloomCore/PetalLayout.swift)
+    Sources/Bloom/FlowerView.swift | Sources/BloomCore/FlowerMotion.swift | Sources/BloomCore/PetalLayout.swift)
       echo "2 preview the flower's look and motion" ;;
+    Sources/Bloom/MenuBarIcon.swift)
+      echo "1 preview the menu bar icon, which no drag or drop depends on" ;;
     Sources/Bloom/FlowerPreview.swift | .github/workflows/preview.yml)
       echo "1 preview the flower preview itself" ;;
     Sources/Bloom/QuickActions.swift | Sources/Bloom/FloatShelf.swift)

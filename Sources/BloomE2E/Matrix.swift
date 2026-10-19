@@ -22,13 +22,16 @@ struct Outcome {
     let verdict: Verdict
     let detail: String
     let screenshot: String?
+    /// The flower opened only on a second tap of its key.
+    var tappedTwice = false
 }
 
 /// Drags each sample out of Finder onto every petal of every flower, one drop at a time, and checks what each one does.
 @MainActor
 enum Matrix {
     static let samples: [Sample] = [
-        Sample(name: "JPEG photo", actions: true) { [try Fixtures.photo(in: $0, width: 2400, height: 1600, quality: 1)] },
+        // A circle and a box, so Remove BG has a subject to cut out; the journeys compress a detailed photo.
+        Sample(name: "JPEG picture", actions: true) { [try Fixtures.image(in: $0, name: "picture.jpg", type: .jpeg, transparent: false)] },
         Sample(name: "PNG with transparency") { [try Fixtures.image(in: $0)] },
         Sample(name: "PDF") { [try Fixtures.pdf(in: $0)] },
         Sample(name: "Video with sound") { [try await Fixtures.video(in: $0, detailed: true)] },
@@ -68,8 +71,8 @@ enum Matrix {
     static func run(_ sample: Sample, number: Int, output: URL) async -> [Outcome] {
         let session = Session(journey: "matrix-\(number)", output: output)
         session.stepShots = false
-        let files: [URL]
-        let originals: [URL: Data]
+        var files: [URL]
+        var originals: [URL: Data]
         do {
             try session.start()
             files = try await sample.make(session.folder)
@@ -93,15 +96,26 @@ enum Matrix {
                     await session.screenshotAfterFailure()
                 }
                 await session.finish()
-                if outcome.0 != .failed, let changed = changed(files, from: originals) {
-                    outcome = (.failed, changed)
+                if let problem = changed(files, from: originals) {
+                    outcome = (.failed, outcome.0 == .failed ? "\(outcome.1) \(problem)" : problem)
                 }
                 clearResults(besides: files, in: session.folder)
+                // Bring a sample back if a failure took it away, so one failure doesn't fail every petal after it.
+                if changed(files, from: originals) != nil {
+                    try? FileManager.default.removeItem(at: session.folder)
+                    try? FileManager.default.createDirectory(at: session.folder, withIntermediateDirectories: true)
+                    if let remade = try? await sample.make(session.folder) {
+                        files = remade
+                        originals = Dictionary(
+                            uniqueKeysWithValues: remade.compactMap { file in (try? Data(contentsOf: file)).map { (file, $0) } })
+                    }
+                }
                 print("\(outcome.0 == .failed ? "FAIL" : "PASS") \(sample.name) · \(petal.label): \(outcome.1)")
                 let shot = session.screenshots.count > shots ? session.screenshots.last?.file : nil
-                outcomes.append(
-                    Outcome(sample: sample.name, mode: mode, petal: petal.label, verdict: outcome.0, detail: outcome.1, screenshot: shot)
-                )
+                var row = Outcome(
+                    sample: sample.name, mode: mode, petal: petal.label, verdict: outcome.0, detail: outcome.1, screenshot: shot)
+                row.tappedTwice = session.tappedTwice
+                outcomes.append(row)
             }
         }
         return outcomes
@@ -139,8 +153,16 @@ enum Matrix {
         if let choice = petal.choice {
             try await session.point(atChoice: choice, of: petal.parent, in: mode, files: files)
         }
-        // A dimmed petal says why it can't work instead of what it does.
         if let caption = Session.caption(), caption != petal.item.detail {
+            // A dimmed Actions petal says why it can't work instead of what it does. Any other caption means the pointer
+            // is on another petal, or the flower has other petals than expected, so the drag goes back unfinished.
+            let items = await WheelCatalog.items(for: files, mode: mode)
+            let details = Set(items.flatMap { [$0.detail] + $0.choices.map(\.detail) })
+            guard case .action = petal.item.operation, !details.contains(caption) else {
+                try await session.screenshot("pointing elsewhere", step: false)
+                try await session.cancelDrag()
+                return (.failed, "The flower says “\(caption)” instead of “\(petal.item.detail)”.")
+            }
             try await session.screenshot("dimmed", step: false)
             try await session.drop()
             try await session.expectFlowerClosed()

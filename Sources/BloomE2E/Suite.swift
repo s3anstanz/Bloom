@@ -85,6 +85,9 @@ final class Suite {
                 print("FAIL \(journey.name): \(error.localizedDescription)")
                 await session.screenshotAfterFailure()
             }
+            if session.tappedTwice {
+                session.note = [session.note, "⚠️ The flower opened only on a second tap."].compactMap { $0 }.joined(separator: " ")
+            }
             if let note = session.note {
                 result += "<br>\(note)"
                 print("  \(note)")
@@ -106,6 +109,8 @@ final class Suite {
         var heading = "### Every petal: \(count(.worked)) of \(outcomes.count) worked"
         if count(.nothingToDo) > 0 { heading += " · \(count(.nothingToDo)) had nothing to do" }
         if count(.unavailable) > 0 { heading += " · \(count(.unavailable)) can’t work on this Mac" }
+        let twice = outcomes.filter(\.tappedTwice).count
+        if twice > 0 { heading += " · \(twice) needed a second tap" }
         heading += failed == 0 ? " · none failed" : " · **\(failed) failed**"
         let rows = outcomes.map { outcome -> String in
             let mark: String
@@ -114,7 +119,8 @@ final class Suite {
             case .nothingToDo, .unavailable: mark = "⚪"
             case .failed: mark = "❌"
             }
-            let detail = outcome.detail.replacingOccurrences(of: "|", with: "\\|").replacingOccurrences(of: "\n", with: " ")
+            var detail = outcome.detail.replacingOccurrences(of: "|", with: "\\|").replacingOccurrences(of: "\n", with: " ")
+            if outcome.tappedTwice { detail += " ⚠️ the flower opened only on a second tap" }
             let shot = outcome.screenshot.map { "[screenshot](\($0))" } ?? ""
             return "| \(outcome.sample) | \(flower(outcome.mode)) | \(outcome.petal) | \(mark) \(detail) | \(shot) |"
         }

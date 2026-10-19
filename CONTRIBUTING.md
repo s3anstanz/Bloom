@@ -20,7 +20,7 @@
 | 2 | The end-to-end journeys | The app itself: drags, key taps, the flower, the Actions petals, the E2E suite, the app bundle |
 | 3 | The journeys and the petal matrix | How files are converted and processed, which petals a file gets, document rendering, the sample files, the package, how the tests run, or any file no rule names |
 
-The **flower preview** also runs when a change touches how the flower looks or moves (`FlowerView`, `FlowerMotion`, `PetalLayout`, `MenuBarIcon`) or the preview itself.
+The **flower preview** also runs when a change touches how the flower or the menu bar icon looks or moves (`FlowerView`, `FlowerMotion`, `PetalLayout`, `MenuBarIcon`) or the preview itself. A change to the menu bar icon alone needs only the build, the unit tests and the preview.
 
 Pull requests play the end-to-end tests on macOS 26. Pushes to `main` play what their changes need on macOS 15 and 26, and every Monday and every run started from the Actions tab plays everything on both. Labels add a level and never remove one: `run:journeys`, `run:matrix` and `preview`. When a change adds a file the rules don't name, it gets the full run; add a rule to `scripts/test-plan.sh` if it needs less.
 

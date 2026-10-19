@@ -54,6 +54,11 @@ final class Session {
     private var cursor = CGPoint.zero
     private var mouseIsDown = false
     private var flower: CGRect?
+    /// Where the current drag picked its files up, so a drag that can't drop on Bloom goes back there.
+    private var pickup = CGPoint.zero
+    private var destinationWindow: URL?
+    /// Set when a key had to be tapped twice before the flower opened.
+    private(set) var tappedTwice = false
 
     init(journey: String, output: URL) {
         name = journey
@@ -88,8 +93,7 @@ final class Session {
     /// Lets go of anything still held and waits for the flower to close, so the next journey starts clean.
     func finish() async {
         if mouseIsDown {
-            post(.leftMouseUp, at: cursor)
-            mouseIsDown = false
+            try? await cancelDrag()
         }
         held = []
         for key in Key.allCases {
@@ -145,6 +149,7 @@ final class Session {
     /// Opens the journey's folder in a Finder window on the left of the screen, in icon view, and `destination` in a
     /// second window below it.
     func openInFinder(alongside destination: URL? = nil) async throws {
+        destinationWindow = destination
         let right = Int(Self.screen.minX + min(560, Self.screen.width * 0.42))
         let bottom = Int(min(Self.screen.maxY - 30, 820))
         let second =
@@ -175,24 +180,21 @@ final class Session {
         try await Self.pause(1)
     }
 
-    /// Presses on the first of `fileNames` in Finder, after ⌘-clicking the rest to select them too, and drags to where
-    /// the flower will open.
+    /// Presses on the first of `fileNames` in Finder, with the rest selected too, and drags to where the flower will
+    /// open.
     func pickUp(_ fileNames: String...) async throws {
         try await pickUp(fileNames)
     }
 
     func pickUp(_ fileNames: [String]) async throws {
         guard let first = fileNames.first else { throw Failure("Nothing to pick up.") }
-        let icon = try await iconCenter(first)
+        tappedTwice = false
         if fileNames.count > 1 {
-            try await click(at: icon)
-            for other in fileNames.dropFirst() {
-                let point = try await iconCenter(other)
-                try await click(at: point, flags: .maskCommand)
-            }
-            // Longer than a double-click, so pressing on the first file again starts a drag of the whole selection.
-            try await Self.pause(0.8)
+            try select(fileNames)
+            try await Self.pause(0.5)
         }
+        let icon = try await iconCenter(first)
+        pickup = icon
         log("picking up \(fileNames.joined(separator: ", ")) at \(Int(icon.x)), \(Int(icon.y))")
         post(.mouseMoved, at: icon)
         try await Self.pause(0.3)
@@ -217,21 +219,47 @@ final class Session {
         return box
     }
 
-    /// Where Finder shows `fileName`, found through the Accessibility API.
-    private func iconCenter(_ fileName: String) async throws -> CGPoint {
-        guard let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first else {
-            throw Failure("Finder isn’t running.")
+    /// Selects `fileNames` in the journey's Finder window, so pressing on one of them drags them all.
+    private func select(_ fileNames: [String]) throws {
+        let items = fileNames.map { "POSIX file \"\(folder.appendingPathComponent($0).path)\" as alias" }
+        let script = NSAppleScript(source: "tell application \"Finder\" to select {\(items.joined(separator: ", "))}")
+        var error: NSDictionary?
+        _ = script?.executeAndReturnError(&error)
+        if let error {
+            throw Failure("Finder didn’t select \(fileNames.joined(separator: ", ")): \(error)")
         }
-        let app = AXUIElementCreateApplication(finder.processIdentifier)
+    }
+
+    /// Where the journey's Finder window shows `fileName`, found through the Accessibility API. Icons elsewhere, like
+    /// on the desktop, don't count. Finder can relaunch or lose the window, so it's opened again once if need be.
+    private func iconCenter(_ fileName: String) async throws -> CGPoint {
         // Finder may hide the extension, so the bare name is the fallback.
-        let stem = (fileName as NSString).deletingPathExtension
-        do {
-            return try await Self.waitFor("\(fileName) in Finder", timeout: 6) {
-                Self.icon(in: app, names: [fileName], depth: 0) ?? Self.icon(in: app, names: [stem], depth: 0)
+        let names = [fileName, (fileName as NSString).deletingPathExtension]
+        let title = folder.lastPathComponent
+        func find() -> CGPoint? {
+            guard let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first else {
+                return nil
             }
+            let windows = Self.elements(AXUIElementCreateApplication(finder.processIdentifier), kAXWindowsAttribute)
+            for window in windows where Self.string(window, kAXTitleAttribute) == title {
+                for name in names {
+                    if let found = Self.icon(in: window, names: [name], depth: 0) { return found }
+                }
+            }
+            return nil
+        }
+        if let found = try? await Self.waitFor("\(fileName) in Finder", timeout: 6, find) {
+            return found
+        }
+        log("opening \(title) in Finder again")
+        try await openInFinder(alongside: destinationWindow)
+        do {
+            return try await Self.waitFor("\(fileName) in Finder", timeout: 6, find)
         } catch {
-            print("  Finder's windows as Accessibility sees them:")
-            Self.dump(app, depth: 0)
+            if let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first {
+                print("  Finder's windows as Accessibility sees them:")
+                Self.dump(AXUIElementCreateApplication(finder.processIdentifier), depth: 0)
+            }
             throw error
         }
     }
@@ -325,11 +353,20 @@ final class Session {
 
     // MARK: Pointer and keys
 
-    /// Taps `key` mid-drag and waits for its flower to open around the pointer.
+    /// Taps `key` mid-drag and waits for its flower to open around the pointer. If it doesn't open, the key is
+    /// tapped once more, as a person would, and `tappedTwice` records it.
     func tap(_ key: Key) async throws {
         try await press(key)
         try await release(key)
-        try await waitForFlower()
+        do {
+            try await waitForFlower(timeout: 3)
+        } catch {
+            log("the flower didn't open, so tapping \(key) again")
+            tappedTwice = true
+            try await press(key)
+            try await release(key)
+            try await waitForFlower()
+        }
     }
 
     /// Presses `key` and keeps holding it through the drop, as someone does when they hold ⌘ to reach Tools.
@@ -464,6 +501,10 @@ final class Session {
     /// Lets go of the mouse button where the pointer is, and shows what the flower does next.
     func drop() async throws {
         log("letting go")
+        guard Self.flowerWindow() != nil else {
+            try await cancelDrag()
+            throw Failure("The flower closed before the drop.")
+        }
         post(.leftMouseUp, at: cursor)
         mouseIsDown = false
         try await Self.pause(0.15)
@@ -472,8 +513,19 @@ final class Session {
         try await screenshot("let go")
     }
 
-    private func waitForFlower() async throws {
-        flower = try await Self.waitFor("the flower to open", timeout: 5) { Self.flowerWindow() }
+    /// Takes the drag back to where it picked the files up and lets go there, which leaves them where they were.
+    /// Letting go anywhere else could move them, like onto the desktop.
+    func cancelDrag() async throws {
+        log("taking the drag back")
+        try await move(to: pickup)
+        try await Self.pause(0.3)
+        post(.leftMouseUp, at: cursor)
+        mouseIsDown = false
+        try await Self.pause(0.5)
+    }
+
+    private func waitForFlower(timeout: Double = 5) async throws {
+        flower = try await Self.waitFor("the flower to open", timeout: timeout) { Self.flowerWindow() }
         try await Self.pause(0.8)
         try await screenshot("open")
     }
