@@ -104,7 +104,7 @@ When several files are dragged together, the flowers offer what works on all of 
 | **Copy Path** | Copies the full path |
 | **Terminal** | Opens the file's folder in Terminal |
 
-When an action can't work on your Mac, such as AirDrop when macOS won't send the file, its petal is dimmed and says why.
+When an action can't work on your Mac, such as AirDrop on a Mac without it, its petal is dimmed and says why.
 
 ## Feedback
 
@@ -135,7 +135,7 @@ When an action can't work on your Mac, such as AirDrop when macOS won't send the
 - `Sources/BloomFixtures`: generates the sample photos, PDFs, videos, audio, documents, subtitles and archives the tests and journeys use, and checks that a result opens as its type.
 - `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
 
-GitHub Actions tests every pull request on real Macs, choosing the tests from the files it touches: code is built and unit-tested on macOS 15 and macOS 26, changes to the app play the end-to-end journeys, and changes to how files are converted also play the petal matrix. The finished `Bloom.app` is attached to the run, and pull requests that change how the flower looks or moves get a comment with a GIF of each moment of it. See [CONTRIBUTING.md](CONTRIBUTING.md).
+GitHub Actions tests every pull request on real Macs, choosing the tests from the files it touches: code is built and unit-tested on macOS 15 and macOS 26, with every petal run on every kind of file, and changes to the app play the end-to-end journeys. The petal matrix, which drops every kind of file on every petal through the app, plays every Monday and before each release. The finished `Bloom.app` is attached to the run, and pull requests that change how the flower looks or moves get a comment with a GIF of each moment of it. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy and security
 

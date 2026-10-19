@@ -1,10 +1,10 @@
 #!/bin/bash
-# Works out which tests a change needs from the files it touches, so a README edit doesn't play the petal matrix and
-# a change to how files are converted can't skip it.
+# Works out which tests a change needs from the files it touches, so a README edit doesn't play the end-to-end journeys
+# and a change to the app can't skip them.
 #
 # Usage: scripts/test-plan.sh [--base <ref>] [--all] [--with journeys|matrix|preview ...]
 #   --base   what the change is compared with (default origin/main)
-#   --all    everything, as on the Monday run
+#   --all    everything, as on the Monday run and a hand-started run before a release
 #   --with   adds a level on top of what the files need; nothing takes one away
 #
 # Prints build=, preview=, journeys= and matrix= as true or false, and level= as the highest level needed. With
@@ -12,10 +12,12 @@
 #
 # Levels:
 #   0  quick checks only: documentation, issue forms, CodeQL
-#   1  build and unit tests: any Swift code, tests or scripts
-#   2  end-to-end journeys: the app itself (drags, the flower, key taps, actions) and the E2E suite
-#   3  petal matrix: how files are converted and processed, the petal catalog, the sample files, the package
-# A file no rule names asks for level 3, so a new kind of file is tested fully until a rule says otherwise.
+#   1  build and unit tests: any Swift code, tests or scripts. The unit tests run every Convert and Tools petal on
+#      every sample, so a change to how files are converted is tested here in seconds.
+#   2  end-to-end journeys: anything that ships in Bloom.app or plays the journeys
+#   3  petal matrix: every sample dropped on every petal through the app. No file asks for it; it runs on --all and
+#      with --with matrix (the run:matrix label)
+# A file no rule names asks for level 2, so a new kind of file is tested through the app until a rule says otherwise.
 # The flower preview runs for files that change how the flower looks or moves, whatever their level.
 set -euo pipefail
 
@@ -41,17 +43,17 @@ classify() {
     .github/workflows/pr-title.yml | scripts/check-title.sh)
       echo "0 - pull request title check" ;;
     Sources/BloomCore/Engine.swift | Sources/BloomCore/Compression.swift | Sources/BloomCore/DocumentRenderer.swift)
-      echo "3 - converts and processes files" ;;
+      echo "2 - converts and processes files" ;;
     Sources/BloomCore/Catalog.swift)
-      echo "3 - decides which petals each kind of file gets" ;;
+      echo "2 - decides which petals each kind of file gets" ;;
     Sources/BloomRender/* | scripts/bundle.sh)
-      echo "3 - renders documents inside Bloom.app" ;;
+      echo "2 - renders documents inside Bloom.app" ;;
     Sources/BloomFixtures/* | Sources/BloomE2E/Matrix.swift)
-      echo "3 - the sample files and the petal matrix" ;;
+      echo "2 - the sample files and the petal matrix" ;;
     Package.swift)
-      echo "3 - the package and its targets" ;;
+      echo "2 - the package and its targets" ;;
     .github/workflows/e2e.yml | .github/workflows/test-plan.yml | scripts/test-plan.sh)
-      echo "3 - how the end-to-end tests run" ;;
+      echo "2 - how the end-to-end tests run" ;;
     Sources/Bloom/FlowerView.swift | Sources/BloomCore/FlowerMotion.swift | Sources/BloomCore/PetalLayout.swift)
       echo "2 preview the flower's look and motion" ;;
     Sources/Bloom/MenuBarIcon.swift)
@@ -71,7 +73,7 @@ classify() {
     Tests/* | Sources/* | scripts/* | .swift-format | .github/workflows/ci.yml | .github/scripts/*)
       echo "1 - code checked by the build and unit tests" ;;
     *)
-      echo "3 - no rule names this file, so everything runs" ;;
+      echo "2 - no rule names this file, so it's tested through the app" ;;
   esac
 }
 
