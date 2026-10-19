@@ -60,6 +60,9 @@ private struct StatusMenu: View {
                 }
             }
         Divider()
+        Button("Report a Problem…") { IssueLink.reportProblem() }
+        Button("Send Feedback…") { IssueLink.sendFeedback() }
+        Divider()
         if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
             Text("Bloom \(version)")
         }
