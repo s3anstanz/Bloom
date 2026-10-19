@@ -37,6 +37,7 @@ final class DragWatcher: NSObject {
         let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
         guard !urls.isEmpty else { return }
         files = urls
+        dragLog.notice("Drag started with \(urls.count, privacy: .public) files")
         taps = KeyTaps(heldAtDragStart: Self.heldKeys())
         MenuBarIcon.shared.dragStarted()
         let timer = Timer(timeInterval: 1.0 / 60.0, target: self, selector: #selector(tick), userInfo: nil, repeats: true)
@@ -58,6 +59,7 @@ final class DragWatcher: NSObject {
     private func finish() {
         timer?.invalidate()
         timer = nil
+        dragLog.notice("Mouse button up; flower open: \(self.taps.isOpen, privacy: .public)")
         if taps.isOpen { radial.dragEnded() }
         MenuBarIcon.shared.dragEnded()
         taps = KeyTaps(heldAtDragStart: [])

@@ -110,6 +110,10 @@ enum Matrix {
                     }
                 }
                 print("\(outcome.0 == .failed ? "FAIL" : "PASS") \(sample.name) · \(petal.label): \(outcome.1)")
+                if outcome.0 == .failed {
+                    print("  Bloom's log:")
+                    Session.bloomLog().forEach { print("    \($0)") }
+                }
                 let shot = session.screenshots.count > shots ? session.screenshots.last?.file : nil
                 var row = Outcome(
                     sample: sample.name, mode: mode, petal: petal.label, verdict: outcome.0, detail: outcome.1, screenshot: shot)

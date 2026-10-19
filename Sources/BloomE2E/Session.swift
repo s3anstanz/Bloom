@@ -839,6 +839,23 @@ final class Session {
         }
     }
 
+    // MARK: Bloom's log
+
+    /// What Bloom logged about drags in the last `seconds`, so a failure shows whether the drop arrived, was refused or
+    /// came after the flower began folding.
+    static func bloomLog(seconds: Int = 20) -> [String] {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/log")
+        process.arguments = ["show", "--style", "compact", "--last", "\(seconds)s", "--predicate", "subsystem == \"\(bloomID)\""]
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return [] }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init).filter { $0.contains("Bloom") }
+    }
+
     // MARK: Waiting
 
     static func pause(_ seconds: Double) async throws {

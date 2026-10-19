@@ -52,6 +52,8 @@ final class RadialController {
     private var tabTask: Task<Void, Never>?
     private var choiceTask: Task<Void, Never>?
     private var presentation = 0
+    /// The mouse button came up before the drop arrived, so the flower began folding first.
+    private var foldedBeforeDrop = false
     private var motionRun = 0
     private lazy var panel: NSPanel = makePanel()
 
@@ -61,6 +63,7 @@ final class RadialController {
         let isNewDrag = !panel.isVisible || !model.isVisible || model.phase != .choosing || model.timeline.closed != nil
         if !isNewDrag, model.mode == mode, files == self.files { return }
         if isNewDrag {
+            foldedBeforeDrop = false
             tabTask?.cancel()
             model.hoveredTab = nil
         }
@@ -78,6 +81,7 @@ final class RadialController {
             ? NSWorkspace.shared.icon(forFile: files[0].path)
             : NSWorkspace.shared.icon(forFiles: files.map(\.path))
         if isNewDrag { place(at: NSEvent.mouseLocation) }
+        dragLog.notice("Flower \(isNewDrag ? "opened" : "switched", privacy: .public): \(String(describing: mode), privacy: .public)")
         var timeline = FlowerTimeline(entrance: isNewDrag ? .bloom : .turn, opened: Self.now)
         if !isNewDrag { timeline.glassOpened = model.timeline.glassOpened }
         model.timeline = timeline
@@ -104,6 +108,8 @@ final class RadialController {
     /// Letting go anywhere but on a petal folds the flower away.
     func dragEnded() {
         guard model.phase == .choosing, model.timeline.closed == nil else { return }
+        foldedBeforeDrop = true
+        dragLog.notice("Drag ended before a drop; folding the flower")
         model.timeline.closed = Self.now
         animate()
         dismiss(after: FlowerMotion.closeDuration)
@@ -155,7 +161,13 @@ final class RadialController {
             let index = model.highlighted,
             model.items.indices.contains(index),
             model.items[index].unavailable == nil
-        else { return false }
+        else {
+            let state = "phase \(model.phase), petal \(model.highlighted.map(String.init) ?? "none") of \(model.items.count)"
+            dragLog.notice("Drop refused: \(state, privacy: .public)")
+            return false
+        }
+        let timing = foldedBeforeDrop ? " after the flower began folding" : ""
+        dragLog.notice("Drop on petal \(index, privacy: .public)\(timing, privacy: .public)")
         let choices = model.openChoices == index ? model.items[index].choices : []
         let choice = model.highlightedChoice.flatMap { choices.indices.contains($0) ? $0 : nil }
         let item = choice.map { choices[$0] } ?? model.items[index]
@@ -326,6 +338,7 @@ final class RadialController {
             self.model.isVisible = false
             try? await Task.sleep(nanoseconds: 260_000_000)
             guard !Task.isCancelled else { return }
+            dragLog.notice("Flower hidden")
             self.panel.orderOut(nil)
             self.model.phase = .choosing
             self.model.highlighted = nil
@@ -397,6 +410,7 @@ final class DropTargetView: NSView {
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
+        dragLog.notice("Drag left the flower")
         controller?.hover(nil)
     }
 

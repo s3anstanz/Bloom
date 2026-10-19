@@ -83,6 +83,8 @@ final class Suite {
                 failures += 1
                 result = "❌ \(error.localizedDescription)"
                 print("FAIL \(journey.name): \(error.localizedDescription)")
+                print("  Bloom's log:")
+                Session.bloomLog(seconds: 60).forEach { print("    \($0)") }
                 await session.screenshotAfterFailure()
             }
             if session.tappedTwice {
