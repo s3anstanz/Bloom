@@ -57,16 +57,32 @@ final class FolderAccessTests: XCTestCase {
         XCTAssertFalse(isLockedReadable)
     }
 
-    func testAFileAsksForItsFolderAndAFolderAsksForItself() throws {
+    func testAnythingInAProtectedFolderAsksForThatFolder() throws {
         let desktop = home.appendingPathComponent("Desktop")
         let project = desktop.appendingPathComponent("Project")
         try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
         let card = try Fixtures.textFile(in: desktop, name: "card.txt", contents: Fixtures.text)
+        let nested = try Fixtures.textFile(in: project, name: "notes.txt", contents: Fixtures.text)
 
-        XCTAssertEqual(FolderAccess.requestTarget(for: card).path, desktop.path)
+        XCTAssertEqual(target(card), desktop.path)
         // Asking for the Desktop's parent, the home folder, would never bring up the Desktop prompt.
-        XCTAssertEqual(FolderAccess.requestTarget(for: desktop).path, desktop.path)
-        XCTAssertEqual(FolderAccess.requestTarget(for: project).path, project.path)
+        XCTAssertEqual(target(desktop), desktop.path)
+        // The drag already lets Bloom list a dropped subfolder, so only the Desktop itself brings up the prompt.
+        XCTAssertEqual(target(project), desktop.path)
+        XCTAssertEqual(target(nested), desktop.path)
+    }
+
+    func testElsewhereAFileAsksForItsFolderAndAFolderForItself() throws {
+        let album = home.appendingPathComponent("Pictures/Album")
+        try FileManager.default.createDirectory(at: album, withIntermediateDirectories: true)
+        let photo = try Fixtures.textFile(in: album, name: "photo.txt", contents: Fixtures.text)
+
+        XCTAssertEqual(target(photo), album.path)
+        XCTAssertEqual(target(album), album.path)
+    }
+
+    private func target(_ item: URL) -> String {
+        FolderAccess.requestTarget(for: item, home: home).path
     }
 
     @MainActor
@@ -77,7 +93,7 @@ final class FolderAccessTests: XCTestCase {
         let a = desktop.appendingPathComponent("a.pdf")
         let b = downloads.appendingPathComponent("b.pdf")
 
-        let refusal = await FolderAccess.resolve([a, b], canShare: mac.canShare, request: mac.request, pause: 0)
+        let refusal = await FolderAccess.resolve([a, b], canShare: mac.canShare, request: mac.request, pause: 0, home: home)
 
         XCTAssertEqual(refusal.inDeniedFolders, [b])
         XCTAssertEqual(refusal.otherwise, [])
@@ -90,7 +106,7 @@ final class FolderAccessTests: XCTestCase {
         let mac = FakeMac(answers: [desktop.path: true], checksBeforeApplied: 3)
 
         let refusal = await FolderAccess.resolve(
-            [desktop.appendingPathComponent("a.pdf")], canShare: mac.canShare, request: mac.request, pause: 0)
+            [desktop.appendingPathComponent("a.pdf")], canShare: mac.canShare, request: mac.request, pause: 0, home: home)
 
         XCTAssertTrue(refusal.isEmpty)
     }
@@ -101,7 +117,7 @@ final class FolderAccessTests: XCTestCase {
         let mac = FakeMac(answers: [desktop.path: false])
         let file = desktop.appendingPathComponent("a.pdf")
 
-        let refusal = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, pause: 0)
+        let refusal = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, pause: 0, home: home)
 
         XCTAssertEqual(refusal.inDeniedFolders, [file])
         XCTAssertEqual(refusal.otherwise, [])
@@ -115,7 +131,7 @@ final class FolderAccessTests: XCTestCase {
         let mac = FakeMac(answers: [desktop.path: true], checksBeforeApplied: .max)
         let file = desktop.appendingPathComponent("a.pdf")
 
-        let refusal = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, attempts: 5, pause: 0)
+        let refusal = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, attempts: 5, pause: 0, home: home)
 
         XCTAssertEqual(refusal.inDeniedFolders, [])
         XCTAssertEqual(refusal.otherwise, [file])
