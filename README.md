@@ -1,12 +1,53 @@
 # Bloom
 
-Drag a file, tap a key, and a flower blooms around your cursor. Each petal is something you can do with the file. Release on a petal and the result lands next to the original. Everything runs on your Mac; Bloom never touches the network.
+**Do things to a file without opening anything.**
 
-| Tap while dragging | Petals | Flower |
+Drag a file, tap a key, and a flower of options blooms around your cursor. Drop the file on a petal and it's done: converted, shrunk, rotated, zipped or AirDropped. The result lands right next to the original.
+
+<p align="center"><img src="docs/images/bloom.gif" width="340" alt="Bloom's flower opening around the cursor"></p>
+
+No app to launch, no Export dialog, no website to upload to. Bloom lives in your menu bar, works on whatever you're already dragging, and never touches the network.
+
+## Three moves
+
+1. **Drag** a file from Finder, the Desktop or anywhere else you can drag one.
+2. **Tap a key** while you're still dragging. A flower opens under your cursor.
+3. **Drop it on a petal.** A ✓ and a pop, and the result sits next to the original.
+
+<p align="center">
+  <img src="docs/images/convert.png" width="260" alt="Dragging photo.jpg onto the PNG petal of the Convert flower">
+  <img src="docs/images/saved.png" width="260" alt="The flower showing a check and Saved photo.png">
+</p>
+
+Each key opens a different flower, and every petal on it works on the file you're holding:
+
+| Tap | Flower | What's on it |
 |---|---|---|
-| **⇧ Shift** | Pink | **Convert:** only the formats this file can become |
-| **⌘ Command** | Violet | **Tools:** compress, resize, rotate, remove background and more |
-| **⌃ Control** | Blue | **Actions:** AirDrop, Float, Copy, Move, Copy Path, Terminal |
+| **⇧ Shift** | **Convert** (pink) | Every format this file can become: HEIC to JPG, video to GIF, DOCX to PDF and more |
+| **⌘ Command** | **Tools** (violet) | Compress, Half Size, Rotate, Flip, Remove BG, No Meta, Merge PDF, Zip and more |
+| **⌃ Control** | **Actions** (blue) | AirDrop, Float on screen, Copy, Move, Copy Path, open in Terminal |
+
+<p align="center">
+  <img src="docs/images/tools.png" width="260" alt="The Tools flower with Half Size lit under the dragged file">
+  <img src="docs/images/actions.png" width="260" alt="The Actions flower with Copy Path lit under the dragged file">
+</p>
+
+Changed your mind mid-drag? Tap another key, or slide over the **⇧ Convert**, **⌘ Tools** and **⌃ Actions** tabs under the flower. Let go of the key whenever you like; the flower stays until you drop. To cancel, let go in the center. Let go away from the flower and it's an ordinary drop.
+
+## Things you'll do with it
+
+- Turn an iPhone **HEIC** into a **JPG** you can email: ⇧, then drop on JPG.
+- Shrink a **screen recording** before you share it: ⌘, then Compress.
+- Make a **GIF** from the first minute of a clip: ⇧, then GIF.
+- Pull the **soundtrack** out of a video: ⇧, then M4A.
+- Cut the **background** out of a product photo: ⌘, then Remove BG (macOS 14 or later).
+- Strip **location data** from a photo before you post it: ⌘, then No Meta.
+- Combine a pile of scans into **one PDF**: drag them together, ⌘, then Merge PDF.
+- Turn a **Word document** into a **PDF**: ⇧, then PDF.
+- Unpack a **.tar.gz**: ⌘, then Extract.
+- Keep a file **floating on screen** to drag into an email later: ⌃, then Float.
+
+Your original is never touched. Results get Finder-style names: `photo.jpg` becomes `photo.png` beside it, or `photo 2.png` if that name is taken.
 
 ## Install
 
@@ -23,14 +64,9 @@ Bloom runs from the menu bar (flower icon). From that menu you can set **Compres
 ~/Bloom/scripts/update.sh
 ```
 
-## Use
+## Every petal
 
-1. Start dragging one or more files in Finder or on the Desktop.
-2. Tap **⇧**, **⌘** or **⌃**. The petals unfold from the center; you can let go of the key and the flower stays until you drop. To switch flowers, tap another key or drag over the **⇧ Convert**, **⌘ Tools** and **⌃ Actions** tabs under the flower.
-3. Move toward a petal until it lifts and lights up, then let go. The center shows ✓ and you hear a pop.
-4. To cancel, let go in the center. Moving off the flower and letting go is a normal drop.
-
-Originals are never modified. Results get Finder-style names: `photo.jpg`, then `photo 2.jpg`, and so on.
+When several files are dragged together, the flowers offer what works on all of them at once.
 
 ### ⇧ Convert
 
@@ -42,8 +78,6 @@ Originals are never modified. Results get Finder-style names: `photo.jpg`, then 
 | Audio (MP3, M4A, WAV, AIFF, FLAC, …) | M4A, WAV, AIFF |
 | Documents (DOCX, DOC, RTF, ODT, HTML, TXT, MD) | PDF, DOCX, RTF, TXT, HTML, ODT |
 | Subtitles (SRT, VTT) | SRT, VTT |
-
-When several files are dragged together, the flower offers the conversions they all support.
 
 ### ⌘ Tools
 
