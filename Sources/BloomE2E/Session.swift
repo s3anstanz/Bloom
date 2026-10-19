@@ -579,9 +579,10 @@ final class Session {
         // Other windows, like the AirDrop sheet, can be large and slow to answer, so only the flower is searched.
         AXUIElementSetMessagingTimeout(app, 0.5)
         let flowers = elements(app, kAXWindowsAttribute).filter { frame($0)?.size == Layout.size }
-        guard let caption = flowers.lazy.compactMap({ window in
-            find(in: window, where: { string($0, kAXIdentifierAttribute) == "bloom.caption" })
-        }).first
+        guard
+            let caption = flowers.lazy.compactMap({ window in
+                find(in: window, where: { string($0, kAXIdentifierAttribute) == "bloom.caption" })
+            }).first
         else { return nil }
         return [kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute].lazy.compactMap { string(caption, $0) }.first {
             !$0.isEmpty
