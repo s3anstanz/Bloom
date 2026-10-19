@@ -90,7 +90,7 @@ When several files are dragged together, the flower offers the conversions they 
 - `Sources/BloomRender`: a helper bundled inside Bloom.app that renders documents to PDF, keeping the app responsive during long documents.
 - `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
 
-Every pull request is built and tested on a Mac by GitHub Actions, and the finished `Bloom.app` is attached to the run. Pull requests that change the flower also get a comment with a GIF of each moment. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Every pull request is built and tested on a Mac by GitHub Actions, and the finished `Bloom.app` is attached to the run. Pull requests labelled `preview` also get a comment with a GIF of each moment of the flower. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy and security
 

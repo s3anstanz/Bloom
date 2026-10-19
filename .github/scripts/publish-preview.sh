@@ -36,8 +36,8 @@ prepare() {
   cat >"$WORK/README.md" <<'EOF'
 # Flower previews
 
-The Preview workflow (`.github/workflows/preview.yml`) renders the flower for each open pull request that changes
-the UI and keeps the latest preview here, one folder per pull request. Every run replaces this branch with a single
+The Preview workflow (`.github/workflows/preview.yml`) renders the flower for open pull requests labelled `preview`
+and keeps the latest preview here, one folder per pull request. Every run replaces this branch with a single
 commit, so cloning Bloom stays small.
 EOF
   git -C "$WORK" add -A

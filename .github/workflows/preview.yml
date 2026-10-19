@@ -1,30 +1,26 @@
 name: Preview
 
+# Runs on pull requests labelled `preview`: when the label is added and on every push while it stays.
 on:
   pull_request:
-    paths:
-      - "Package.swift"
-      - "Sources/Bloom/**"
-      - "Sources/BloomCore/Catalog.swift"
-      - "Sources/BloomCore/FlowerMotion.swift"
-      - "Sources/BloomCore/FlowerTabs.swift"
-      - "Sources/BloomCore/PetalLayout.swift"
-      - "Support/**"
-      - ".github/scripts/publish-preview.sh"
-      - ".github/workflows/preview.yml"
+    types: [labeled, synchronize, reopened]
 
 permissions:
   contents: read
-
-concurrency:
-  group: preview-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 jobs:
   preview:
     name: Flower preview
     # Pull requests from forks and Dependabot get a read-only token, which can't publish the preview.
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'preview')
+      && (github.event.action != 'labeled' || github.event.label.name == 'preview')
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    # At job level, so adding some other label doesn't cancel a preview that's rendering.
+    concurrency:
+      group: preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: macos-15
     timeout-minutes: 30
     permissions:
