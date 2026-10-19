@@ -34,6 +34,22 @@ final class IssueReportTests: XCTestCase {
         XCTAssertFalse(everything.contains("Taxes"))
     }
 
+    func testProblemReportLeavesOutAFolderNamedOnItsOwn() {
+        let file = URL(fileURLWithPath: "/Users/someone/Taxes 2025/Payslip March.pdf")
+        let failure = IssueReport.Failure(
+            petal: "Compress",
+            mode: .tools,
+            files: [file],
+            message: "The file “Payslip March (compressed).pdf” couldn’t be saved in the folder “Taxes 2025” of “someone”."
+        )
+        let report = IssueReport.problem(failure, build: build)
+
+        XCTAssertEqual(
+            value("output", in: report),
+            "The file “[file] (compressed).pdf” couldn’t be saved in the folder “[folder]” of “[folder]”."
+        )
+    }
+
     func testProblemReportListsEachFileTypeOnceForASelection() {
         let files = ["a.jpg", "b.png", "c.jpg"].map { URL(fileURLWithPath: "/tmp/\($0)") }
         let failure = IssueReport.Failure(petal: "PDF", mode: .convert, files: files, message: "Couldn’t save the PDF.")

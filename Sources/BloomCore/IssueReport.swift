@@ -91,6 +91,12 @@ public struct IssueReport: Equatable {
             let stem = file.deletingPathExtension().lastPathComponent
             if stem.count >= 3 { text = text.replacingOccurrences(of: stem, with: "[file]") }
         }
+        // macOS messages can name a folder on its own, like "couldn’t be saved in the folder “Taxes 2025”".
+        let system: Set<String> = ["Users", "Volumes", "private"]
+        let names = Set(parents.flatMap { $0.pathComponents }).filter { $0.count >= 3 && !system.contains($0) }
+        for name in names.sorted(by: { $0.count > $1.count }) {
+            text = text.replacingOccurrences(of: name, with: "[folder]")
+        }
         return String(text.prefix(500))
     }
 }
