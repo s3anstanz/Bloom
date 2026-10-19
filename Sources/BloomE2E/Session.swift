@@ -36,6 +36,16 @@ final class Session {
         static let choiceRadius = Double(ChoiceLayout.innerRadius + ChoiceLayout.outerRadius) / 2
         static let tabsDrop = 182.0
         static let tabWidth = 96.0
+        /// Clear of the label inside each tab: where the open flower's tab shows its colour.
+        static let tabSampleInset = 30.0
+        /// The open flower's tab is filled with its deep petal colour (`PetalPalette` in the app); the others show the
+        /// dark backdrop.
+        static let tabColors: [(Mode?, [Double])] = [
+            (.convert, [0.93, 0.27, 0.47]),
+            (.tools, [0.50, 0.33, 0.96]),
+            (.actions, [0.16, 0.56, 0.96]),
+            (nil, [0.1, 0.1, 0.1]),
+        ]
     }
 
     static let bloomID = "com.westfalllabs.bloom"
@@ -71,6 +81,20 @@ final class Session {
             NSRunningApplication.runningApplications(withBundleIdentifier: bloomID).contains { $0.isFinishedLaunching }
         }
         try await pause(1)
+    }
+
+    /// Quits Bloom and opens it again, so the journey's drag is the first one Bloom sees.
+    func relaunchBloom() async throws {
+        guard let bloom = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bloomID).first,
+            let app = bloom.bundleURL
+        else { throw Failure("Bloom isn’t running.") }
+        log("relaunching Bloom")
+        bloom.forceTerminate()
+        try await Self.waitUntil("Bloom to quit", timeout: 10) { bloom.isTerminated }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        _ = try await NSWorkspace.shared.openApplication(at: app, configuration: configuration)
+        try await Self.waitForBloom()
     }
 
     func start() throws {
@@ -358,6 +382,50 @@ final class Session {
         try await screenshot("on the \(mode) tab")
     }
 
+    /// Checks the screen shows `mode`'s tab filled with its colour, as it does once that flower is open. The drop
+    /// lands by where petals sit, so this is what fails when the flower switches without the screen showing it.
+    func expectTab(_ mode: Mode) async throws {
+        let center = try flowerCenter()
+        guard let column = FlowerTabs.modes.firstIndex(of: mode) else { throw Failure("There's no \(mode) tab.") }
+        let (file, area) = try capture("\(mode) tab open")
+        guard let source = CGImageSourceCreateWithURL(file as CFURL, nil),
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { throw Failure("Couldn’t read the screenshot of the \(mode) tab.") }
+        let scale = Double(image.width) / area.width
+        let tabCenter = center.x + Layout.tabWidth * Double(column - 1)
+        for x in [tabCenter - Layout.tabSampleInset, tabCenter + Layout.tabSampleInset] {
+            let pixel = CGPoint(x: (x - area.minX) * scale, y: (center.y + Layout.tabsDrop - area.minY) * scale)
+            let color = try Self.color(of: image, at: pixel)
+            let nearest = Layout.tabColors.min { Self.distance($0.1, color) < Self.distance($1.1, color) }
+            guard let nearest, nearest.0 == mode else {
+                let shown = nearest?.0.map { "the \($0) tab's colour" } ?? "no flower's colour"
+                let rgb = color.map { String(format: "%.2f", $0) }.joined(separator: ", ")
+                throw Failure("The \(mode) tab shows \(shown) (\(rgb)), so the \(mode) flower isn’t on screen.")
+            }
+        }
+    }
+
+    private static func color(of image: CGImage, at pixel: CGPoint) throws -> [Double] {
+        var bytes = [UInt8](repeating: 0, count: 4)
+        guard let one = image.cropping(to: CGRect(x: Int(pixel.x), y: Int(pixel.y), width: 1, height: 1)),
+            let context = CGContext(
+                data: &bytes,
+                width: 1,
+                height: 1,
+                bitsPerComponent: 8,
+                bytesPerRow: 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            )
+        else { throw Failure("Couldn’t read a pixel of the screenshot.") }
+        context.draw(one, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return bytes.prefix(3).map { Double($0) / 255 }
+    }
+
+    private static func distance(_ a: [Double], _ b: [Double]) -> Double {
+        zip(a, b).map { ($0 - $1) * ($0 - $1) }.reduce(0, +)
+    }
+
     func pointAtCenter() async throws {
         log("moving to the center")
         let center = try flowerCenter()
@@ -489,18 +557,25 @@ final class Session {
 
     /// Saves the screen around the flower, or the whole screen before it opens.
     func screenshot(_ label: String) async throws {
+        _ = try capture(label)
+    }
+
+    /// Saves a screenshot for the summary and returns its file and the screen area it shows.
+    private func capture(_ label: String) throws -> (file: URL, area: CGRect) {
         let area = flower.map { $0.insetBy(dx: -30, dy: -20).intersection(Self.screen) } ?? Self.screen
         let file = "\(name)-\(screenshots.count + 1).png"
+        let url = output.appendingPathComponent(file)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
         process.arguments = [
             "-x", "-R\(Int(area.minX)),\(Int(area.minY)),\(Int(area.width)),\(Int(area.height))",
-            output.appendingPathComponent(file).path,
+            url.path,
         ]
         try process.run()
         process.waitUntilExit()
         guard process.terminationStatus == 0 else { throw Failure("Couldn’t capture the screen for “\(label)”.") }
         screenshots.append((file, label))
+        return (url, area)
     }
 
     /// Saves the whole screen so a failure shows what was in the way.
