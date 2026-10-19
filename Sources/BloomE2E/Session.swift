@@ -73,6 +73,20 @@ final class Session {
         try await pause(1)
     }
 
+    /// Quits Bloom and opens it again, so the journey's drag is the first one Bloom sees.
+    func relaunchBloom() async throws {
+        guard let bloom = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bloomID).first,
+            let app = bloom.bundleURL
+        else { throw Failure("Bloom isn’t running.") }
+        log("relaunching Bloom")
+        bloom.forceTerminate()
+        try await Self.waitUntil("Bloom to quit", timeout: 10) { bloom.isTerminated }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        _ = try await NSWorkspace.shared.openApplication(at: app, configuration: configuration)
+        try await Self.waitForBloom()
+    }
+
     func start() throws {
         if FileManager.default.fileExists(atPath: folder.path) {
             try FileManager.default.removeItem(at: folder)

@@ -62,6 +62,19 @@ enum Journeys {
             let half = try await session.expectFile("photo (50%).jpg")
             try session.expectImage(half, type: .jpeg, width: 320, height: 240)
         },
+        // The first flower after launch once switched tabs without showing it, until the next drag.
+        Journey(name: "switch-on-first-drag", title: "Switch to Tools with the tabs on the first drag after Bloom opens") { session in
+            let photo = try session.image("photo.jpg")
+            try await session.relaunchBloom()
+            try await session.openInFinder()
+            try await session.pickUp("photo.jpg")
+            try await session.tap(.shift)
+            try await session.point(atTab: .tools)
+            try await session.point(at: "Half Size", in: .tools, files: [photo])
+            try await session.drop()
+            let half = try await session.expectFile("photo (50%).jpg")
+            try session.expectImage(half, type: .jpeg, width: 320, height: 240)
+        },
         Journey(name: "copy-path-holding-control", title: "⌃ Copy Path, holding ⌃ through the drop") { session in
             let photo = try session.image("photo.jpg")
             NSPasteboard.general.clearContents()
