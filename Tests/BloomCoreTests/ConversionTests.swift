@@ -91,15 +91,13 @@ final class ConversionTests: XCTestCase {
         XCTAssertEqual(pages, ["Page 1.png", "Page 2.png", "Page 3.png"])
     }
 
-    func testCompressingLowSampleRateMonoAudioWorksAtEveryLevel() async throws {
+    func testCompressingLowSampleRateMonoAudioWorksAtEverySize() async throws {
         let voice = try Fixtures.audio(in: folder, name: "voice.wav", sampleRate: 22_050, channels: 1)
-        defer { UserDefaults.standard.removeObject(forKey: CompressionSetting.key) }
-        for level in CompressionSetting.choices {
-            UserDefaults.standard.set(level, forKey: CompressionSetting.key)
-            let outputs = try await Engine.apply(.compress, to: [voice])
-            XCTAssertEqual(outputs.first?.pathExtension, "m4a", "level \(level)")
+        for level in CompressionLevel.allCases {
+            let outputs = try await Engine.compress([voice], level: level)
+            XCTAssertEqual(outputs.first?.pathExtension, "m4a", level.title)
             if let output = outputs.first, let problem = await defect(in: output) {
-                XCTFail("level \(level): \(problem)")
+                XCTFail("\(level.title): \(problem)")
             }
         }
     }

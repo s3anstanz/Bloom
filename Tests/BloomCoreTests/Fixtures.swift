@@ -47,6 +47,39 @@ enum Fixtures {
         return url
     }
 
+    /// A JPEG full of small tiles in varied colours, detailed like a photo, saved at `quality`.
+    static func photo(in folder: URL, name: String = "photo.jpg", width: Int, height: Int, quality: Double) throws -> URL {
+        let url = folder.appendingPathComponent(name)
+        guard
+            let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            )
+        else { throw FixtureError("Couldn’t draw the sample photo.") }
+        let tile = 8
+        for row in 0..<(height + tile - 1) / tile {
+            for column in 0..<(width + tile - 1) / tile {
+                let seed = row * 7919 + column * 104_729
+                let red = CGFloat(seed % 251) / 250
+                let green = CGFloat(seed % 241) / 240
+                let blue = CGFloat(seed % 239) / 238
+                context.setFillColor(CGColor(red: red, green: green, blue: blue, alpha: 1))
+                context.fill(CGRect(x: column * tile, y: row * tile, width: tile, height: tile))
+            }
+        }
+        guard let image = context.makeImage(),
+            let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
+        else { throw FixtureError("Couldn’t save the sample photo.") }
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { throw FixtureError("Couldn’t save the sample photo.") }
+        return url
+    }
+
     static func textFile(in folder: URL, name: String, contents: String) throws -> URL {
         let url = folder.appendingPathComponent(name)
         try contents.write(to: url, atomically: true, encoding: .utf8)

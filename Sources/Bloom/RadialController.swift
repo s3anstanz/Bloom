@@ -3,9 +3,10 @@ import BloomCore
 import SwiftUI
 
 enum RadialLayout {
-    static let size = CGSize(width: 340, height: 420)
+    /// Tall enough above the glass for the first petal's choices (`ChoiceLayout`) to bloom past its tip.
+    static let size = CGSize(width: 340, height: 490)
     /// Flower center in SwiftUI coordinates (origin at top-left).
-    static let ringCenter = CGPoint(x: 170, y: 170)
+    static let ringCenter = CGPoint(x: 170, y: 240)
     static let ringRadius: CGFloat = 150
     static let hubRadius: CGFloat = 50
     /// How far below the flower's center the tab row's center sits.
@@ -13,6 +14,8 @@ enum RadialLayout {
     static let tabSize = CGSize(width: 96, height: 30)
     /// Waiting this long on a tab before switching keeps an overshoot past the bottom petal from changing flowers.
     static let tabDwell: Double = 0.2
+    /// Resting this long on a petal with choices opens them; passing over it doesn't.
+    static let choiceDwell: Double = 0.25
 }
 
 @MainActor
@@ -24,6 +27,9 @@ final class RadialModel: ObservableObject {
     @Published var items: [WheelItem] = []
     @Published var itemsLoaded = false
     @Published var highlighted: Int?
+    /// The petal whose choices are open, like Compress's sizes.
+    @Published var openChoices: Int?
+    @Published var highlightedChoice: Int?
     @Published var hoveredTab: Mode?
     @Published var phase: Phase = .choosing
     @Published var status: String?
@@ -44,6 +50,7 @@ final class RadialController {
     private var files: [URL] = []
     private var hideTask: Task<Void, Never>?
     private var tabTask: Task<Void, Never>?
+    private var choiceTask: Task<Void, Never>?
     private var presentation = 0
     private var motionRun = 0
     private lazy var panel: NSPanel = makePanel()
@@ -62,6 +69,7 @@ final class RadialController {
         model.items = []
         model.itemsLoaded = false
         model.highlighted = nil
+        closeChoices()
         model.phase = .choosing
         model.status = nil
         model.fileCount = files.count
@@ -106,11 +114,31 @@ final class RadialController {
         if !isFolding {
             hoverTab(offset.flatMap { tab(at: $0) })
         }
+        if let parent = model.openChoices, let choice = offset.flatMap({ choiceIndex(at: $0, around: parent) }) {
+            model.highlighted = parent
+            if choice != model.highlightedChoice {
+                model.highlightedChoice = choice
+                if !isFolding {
+                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                }
+            }
+            return true
+        }
+        model.highlightedChoice = nil
         let index = offset.flatMap { itemIndex(at: $0) }
+        // Choices stay open over the gaps around them and close once another petal is under the pointer.
+        if let index, model.openChoices != nil, index != model.openChoices {
+            closeChoices()
+        }
         if index != model.highlighted {
             model.highlighted = index
             if index != nil, !isFolding {
                 NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+            }
+            if let index, !isFolding {
+                waitToOpenChoices(of: index)
+            } else {
+                choiceTask?.cancel()
             }
         }
         return index != nil
@@ -121,8 +149,11 @@ final class RadialController {
             let index = model.highlighted,
             model.items.indices.contains(index)
         else { return false }
-        let item = model.items[index]
+        let choices = model.openChoices == index ? model.items[index].choices : []
+        let choice = model.highlightedChoice.flatMap { choices.indices.contains($0) ? $0 : nil }
+        let item = choice.map { choices[$0] } ?? model.items[index]
         let files = self.files
+        choiceTask?.cancel()
         // DragWatcher can see the mouse-up first and start folding the flower away before this drop arrives.
         hideTask?.cancel()
         model.isVisible = true
@@ -131,6 +162,7 @@ final class RadialController {
         model.status = item.progress
         model.timeline.dropped = Self.now
         model.timeline.chosen = index
+        model.timeline.chosenChoice = choice
         animate()
         Task { @MainActor in
             do {
@@ -141,6 +173,9 @@ final class RadialController {
                     message = Self.savedMessage(outputs)
                 case .tool(let tool):
                     let outputs = try await Engine.apply(tool, to: files)
+                    message = Self.savedMessage(outputs)
+                case .compress(let level):
+                    let outputs = try await Engine.compress(files, level: level)
                     message = Self.savedMessage(outputs)
                 case .action(let action):
                     if action == .move { self.hideNow() }
@@ -175,7 +210,8 @@ final class RadialController {
         motionRun += 1
         let run = motionRun
         model.isAnimating = true
-        let remaining = FlowerMotion.endTime(of: model.timeline, petals: model.items.count) - Self.now
+        let choices = model.openChoices.flatMap { model.items.indices.contains($0) ? model.items[$0].choices.count : nil } ?? 0
+        let remaining = FlowerMotion.endTime(of: model.timeline, petals: model.items.count, choices: choices) - Self.now
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(max(remaining, 0) * 1_000_000_000))
             guard run == self.motionRun else { return }
@@ -199,6 +235,37 @@ final class RadialController {
             innerRadius: RadialLayout.hubRadius,
             outerRadius: RadialLayout.ringRadius
         )
+    }
+
+    private func choiceIndex(at offset: CGPoint, around parent: Int) -> Int? {
+        guard model.phase == .choosing, model.items.indices.contains(parent) else { return nil }
+        let angle = 2 * Double.pi * Double(parent) / Double(model.items.count)
+        return ChoiceLayout.index(at: offset, count: model.items[parent].choices.count, around: angle, glassRadius: RadialLayout.ringRadius)
+    }
+
+    /// Resting on a petal with choices, like Compress, opens them past its tip.
+    private func waitToOpenChoices(of index: Int) {
+        choiceTask?.cancel()
+        guard model.openChoices != index, model.items.indices.contains(index), !model.items[index].choices.isEmpty else { return }
+        choiceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(RadialLayout.choiceDwell * 1_000_000_000))
+            guard !Task.isCancelled,
+                self.model.highlighted == index,
+                self.model.phase == .choosing,
+                self.model.timeline.closed == nil
+            else { return }
+            self.model.openChoices = index
+            self.model.timeline.choicesOpened = Self.now
+            self.animate()
+            NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        }
+    }
+
+    private func closeChoices() {
+        choiceTask?.cancel()
+        model.openChoices = nil
+        model.highlightedChoice = nil
+        model.timeline.choicesOpened = nil
     }
 
     private func tab(at offset: CGPoint) -> Mode? {
@@ -226,6 +293,7 @@ final class RadialController {
     private func hideNow() {
         hideTask?.cancel()
         tabTask?.cancel()
+        closeChoices()
         model.isVisible = false
         panel.orderOut(nil)
         model.items = []
@@ -243,6 +311,7 @@ final class RadialController {
             self.panel.orderOut(nil)
             self.model.phase = .choosing
             self.model.highlighted = nil
+            self.closeChoices()
             // Emptying the petals makes the next drag's petals appear fresh, so they bloom again.
             self.model.items = []
         }

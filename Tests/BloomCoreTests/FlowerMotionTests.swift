@@ -71,6 +71,57 @@ final class FlowerMotionTests: XCTestCase {
         XCTAssertEqual(working.tabsOpacity, 0, accuracy: 0.001)
     }
 
+    private func withChoices(_ timeline: FlowerTimeline, at seconds: TimeInterval, reduceMotion: Bool = false) -> FlowerFrame {
+        FlowerMotion.frame(timeline, at: opened + seconds, petals: 6, choices: 3, reduceMotion: reduceMotion)
+    }
+
+    func testChoicesStayHiddenUntilTheyOpenThenSettleFullyShown() {
+        var timeline = bloom()
+        XCTAssertTrue(withChoices(timeline, at: 3).choices.allSatisfy { $0.opacity == 0 && $0.labelOpacity == 0 })
+
+        timeline.choicesOpened = opened + 3
+        let opening = withChoices(timeline, at: 3.05)
+        XCTAssertGreaterThan(opening.choices[0].opacity, opening.choices[2].opacity, "They open one after another")
+        let end = FlowerMotion.endTime(of: timeline, petals: 6, choices: 3)
+        XCTAssertGreaterThan(end, opened + 3)
+        for choice in FlowerMotion.frame(timeline, at: end, petals: 6, choices: 3, reduceMotion: false).choices {
+            XCTAssertEqual(choice.scale, 1, accuracy: 0.01)
+            XCTAssertEqual(choice.opacity, 1, accuracy: 0.001)
+            XCTAssertEqual(choice.labelOpacity, 1, accuracy: 0.001)
+            XCTAssertEqual(choice.light, 0, accuracy: 0.001)
+        }
+    }
+
+    func testADropOnAChoiceKeepsItLitAndClearsTheOthers() {
+        var timeline = bloom()
+        timeline.choicesOpened = opened + 2
+        timeline.dropped = opened + 3
+        timeline.chosen = 0
+        timeline.chosenChoice = 1
+        let working = withChoices(timeline, at: 4)
+        XCTAssertEqual(working.petals[0].light, 1)
+        XCTAssertEqual(working.choices[1].light, 1)
+        XCTAssertEqual(working.choices[1].opacity, 1, accuracy: 0.001)
+        XCTAssertEqual(working.choices[0].opacity, 0, accuracy: 0.001)
+        XCTAssertEqual(working.choices[2].opacity, 0, accuracy: 0.001)
+    }
+
+    func testLettingGoFoldsOpenChoicesToo() {
+        var timeline = bloom()
+        timeline.choicesOpened = opened + 2
+        timeline.closed = opened + 3
+        XCTAssertTrue(withChoices(timeline, at: 3 + FlowerMotion.closeDuration).choices.allSatisfy { $0.opacity < 0.001 })
+    }
+
+    func testWithReduceMotionChoicesOnlyFadeIn() {
+        var timeline = bloom()
+        timeline.choicesOpened = opened + 2
+        for seconds in stride(from: 2.0, through: 3.0, by: 0.02) {
+            XCTAssertTrue(withChoices(timeline, at: seconds, reduceMotion: true).choices.allSatisfy { $0.scale == 1 && $0.labelInset == 0 })
+        }
+        XCTAssertEqual(withChoices(timeline, at: 3, reduceMotion: true).choices[2].opacity, 1)
+    }
+
     func testSuccessReplacesTheSpinnerWithADrawnCheck() {
         var timeline = bloom()
         timeline.dropped = opened + 2

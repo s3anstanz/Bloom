@@ -37,7 +37,7 @@ Changed your mind mid-drag? Tap another key, or slide over the **⇧ Convert**, 
 ## Things you'll do with it
 
 - Turn an iPhone **HEIC** into a **JPG** you can email: ⇧, then drop on JPG.
-- Shrink a **screen recording** before you share it: ⌘, then Compress.
+- Shrink a **screen recording** before you share it: ⌘, rest on Compress, then pick a size.
 - Make a **GIF** from the first minute of a clip: ⇧, then GIF.
 - Pull the **soundtrack** out of a video: ⇧, then M4A.
 - Cut the **background** out of a product photo: ⌘, then Remove BG (macOS 14 or later).
@@ -58,7 +58,7 @@ git clone https://github.com/s3anstanz/Bloom.git ~/Bloom
 ~/Bloom/scripts/install.sh
 ```
 
-Bloom runs from the menu bar (flower icon). From that menu you can set **Compress To** (75%, 50% or 25%) and turn on **Launch at Login**. To get the latest version:
+Bloom runs from the menu bar (flower icon). From that menu you can turn on **Launch at Login**. To get the latest version:
 
 ```bash
 ~/Bloom/scripts/update.sh
@@ -83,7 +83,7 @@ When several files are dragged together, the flowers offer what works on all of 
 
 | Tool | Works on |
 |---|---|
-| Compress (uses the Compress To setting) | Images → JPG, video → MP4, audio → AAC; PDFs use macOS's Reduce File Size filter |
+| Compress | Rest on it and three sizes bloom past it: **Smaller**, **Balanced** and **Sharper**; dropping on Compress itself makes Balanced. Images → JPG up to 1600, 2400 or 3200 px; video → MP4 up to 540p, 720p or 1080p; audio → AAC at 32, 64 or 96 kbps per channel. PDFs use macOS's Reduce File Size filter. A result that isn't smaller than the original isn't kept |
 | Half Size, Flip, Grayscale, No Meta (removes location and camera data) | Images |
 | Rotate | Images and PDFs |
 | Remove BG | Images, on macOS 14 or later |

@@ -28,6 +28,29 @@ enum Journeys {
             let half = try await session.expectFile("photo (50%).jpg")
             try session.expectImage(half, type: .jpeg, width: 320, height: 240)
         },
+        Journey(name: "compress-size", title: "⌘ Compress a photo to the Smaller size") { session in
+            let photo = try session.photo("photo.jpg", width: 3200, height: 2000)
+            let original = try Data(contentsOf: photo)
+            try await session.openInFinder()
+            try await session.pickUp("photo.jpg")
+            try await session.tap(.command)
+            try await session.point(at: "Compress", in: .tools, files: [photo])
+            try await session.point(atChoice: "Smaller", of: "Compress", in: .tools, files: [photo])
+            try await session.drop()
+            let smaller = try await session.expectFile("photo (compressed).jpg")
+            try session.expectImage(smaller, type: .jpeg, width: 1600, height: 1000)
+            try session.expectUnchanged(photo, from: original)
+        },
+        Journey(name: "compress-balanced", title: "⌘ Compress dropped on the petal makes the Balanced size") { session in
+            let photo = try session.photo("photo.jpg", width: 3200, height: 2000)
+            try await session.openInFinder()
+            try await session.pickUp("photo.jpg")
+            try await session.tap(.command)
+            try await session.point(at: "Compress", in: .tools, files: [photo])
+            try await session.drop()
+            let balanced = try await session.expectFile("photo (compressed).jpg")
+            try session.expectImage(balanced, type: .jpeg, width: 2400, height: 1500)
+        },
         Journey(name: "switch-with-tabs", title: "Switch from Convert to Tools with the tabs") { session in
             let photo = try session.image("photo.jpg")
             try await session.openInFinder()

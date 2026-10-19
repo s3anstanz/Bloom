@@ -101,7 +101,50 @@ final class CatalogTests: XCTestCase {
 
     func testPDFCompressionNamesTheFilterItUses() async {
         let items = await WheelCatalog.items(for: [URL(fileURLWithPath: "/tmp/report.pdf")], mode: .tools)
-        XCTAssertEqual(items.first { $0.title == "Compress" }?.detail, "Shrink with macOS’s Reduce File Size filter")
+        let compress = items.first { $0.title == "Compress" }
+        XCTAssertEqual(compress?.detail, "Shrink with macOS’s Reduce File Size filter")
+        XCTAssertEqual(compress?.choices.count, 0, "The filter has one size")
+    }
+
+    private func compress(_ paths: [String]) async -> WheelItem? {
+        await WheelCatalog.items(for: paths.map { URL(fileURLWithPath: "/tmp/\($0)") }, mode: .tools).first { $0.title == "Compress" }
+    }
+
+    func testCompressOpensThreeSizesThatSayWhatTheyMakeOfAPhoto() async throws {
+        let found = await compress(["photo.png"])
+        let item = try XCTUnwrap(found)
+        XCTAssertEqual(item.detail, "Compress to JPEG, up to 2400 px")
+        XCTAssertEqual(item.choices.map(\.title), ["Smaller", "Balanced", "Sharper"])
+        XCTAssertEqual(item.choices.map(\.badge), ["1600 px", "2400 px", "3200 px"])
+        XCTAssertEqual(item.choices.map(\.detail), ["Compress to JPEG, up to 1600 px", item.detail, "Compress to JPEG, up to 3200 px"])
+    }
+
+    func testCompressSizesForVideoAndAudio() async throws {
+        let found = await compress(["clip.mov"])
+        let video = try XCTUnwrap(found)
+        XCTAssertEqual(video.detail, "Compress to MP4, up to 720p")
+        XCTAssertEqual(video.choices.map(\.badge), ["540p", "720p", "1080p"])
+
+        let monoVoice = try Fixtures.audio(in: try Fixtures.makeFolder(), name: "voice.wav", channels: 1)
+        defer { try? FileManager.default.removeItem(at: monoVoice.deletingLastPathComponent()) }
+        let mono = await WheelCatalog.items(for: [monoVoice], mode: .tools).first { $0.title == "Compress" }
+        XCTAssertEqual(mono?.choices.map(\.badge), ["32 kbps", "64 kbps", "96 kbps"])
+        XCTAssertEqual(mono?.detail, "Compress to AAC, 64 kbps")
+    }
+
+    func testCompressSizesForMixedFilesSayOnlyTheirNames() async throws {
+        let found = await compress(["photo.png", "clip.mov"])
+        let item = try XCTUnwrap(found)
+        XCTAssertEqual(item.detail, "Compress at the Balanced size")
+        XCTAssertEqual(item.choices.map(\.badge), [nil, nil, nil])
+    }
+
+    func testOnlyTheFirstPetalHasChoicesSoTheyOpenAboveTheFlower() async {
+        for paths in [["photo.png"], ["clip.mov"], ["song.wav"], ["photo.png", "clip.mov"]] {
+            let items = await WheelCatalog.items(for: paths.map { URL(fileURLWithPath: "/tmp/\($0)") }, mode: .tools)
+            XCTAssertFalse(items.first?.choices.isEmpty ?? true, "\(paths)")
+            XCTAssertTrue(items.dropFirst().allSatisfy { $0.choices.isEmpty }, "\(paths)")
+        }
     }
 
     func testActionsFlowerOffersTheSameSixPetalsForAnyFile() async {

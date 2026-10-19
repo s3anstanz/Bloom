@@ -29,10 +29,11 @@ final class Session {
 
     /// Where the flower's parts sit in its window, matching `RadialLayout` in the app.
     private enum Layout {
-        static let size = CGSize(width: 340, height: 420)
-        static let center = CGPoint(x: 170, y: 170)
+        static let size = CGSize(width: 340, height: 490)
+        static let center = CGPoint(x: 170, y: 240)
         /// Midway between the hub (50 pt) and the ring (150 pt).
         static let petalRadius = 100.0
+        static let choiceRadius = Double(ChoiceLayout.innerRadius + ChoiceLayout.outerRadius) / 2
         static let tabsDrop = 182.0
         static let tabWidth = 96.0
     }
@@ -122,6 +123,39 @@ final class Session {
             let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil)
         else { throw Failure("Couldn’t create \(fileName).") }
         CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else { throw Failure("Couldn’t save \(fileName).") }
+        return url
+    }
+
+    /// A photo-sized JPEG full of small tiles in varied colours, saved at full quality so Compress has plenty to shrink.
+    func photo(_ fileName: String, width: Int, height: Int) throws -> URL {
+        let url = folder.appendingPathComponent(fileName)
+        guard
+            let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            )
+        else { throw Failure("Couldn’t draw \(fileName).") }
+        let tile = 8
+        for row in 0..<(height + tile - 1) / tile {
+            for column in 0..<(width + tile - 1) / tile {
+                let seed = row * 7919 + column * 104_729
+                let red = CGFloat(seed % 251) / 250
+                let green = CGFloat(seed % 241) / 240
+                let blue = CGFloat(seed % 239) / 238
+                context.setFillColor(CGColor(red: red, green: green, blue: blue, alpha: 1))
+                context.fill(CGRect(x: column * tile, y: row * tile, width: tile, height: tile))
+            }
+        }
+        guard let image = context.makeImage(),
+            let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
+        else { throw Failure("Couldn’t create \(fileName).") }
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 1.0] as CFDictionary)
         guard CGImageDestinationFinalize(destination) else { throw Failure("Couldn’t save \(fileName).") }
         return url
     }
@@ -292,6 +326,23 @@ final class Session {
         let angle = 2 * Double.pi * Double(index) / Double(items.count)
         log("moving to \(title)")
         try await move(to: CGPoint(x: center.x + Layout.petalRadius * sin(angle), y: center.y - Layout.petalRadius * cos(angle)))
+        try await Self.pause(0.6)
+        try await screenshot("on \(title)")
+    }
+
+    /// Drags out to the choice titled `title` past the petal titled `petal`, whose choices opened while the pointer
+    /// rested on it.
+    func point(atChoice title: String, of petal: String, in mode: Mode, files: [URL]) async throws {
+        let center = try flowerCenter()
+        let items = await WheelCatalog.items(for: files, mode: mode)
+        guard let parent = items.firstIndex(where: { $0.title == petal }),
+            let index = items[parent].choices.firstIndex(where: { $0.title == title })
+        else { throw Failure("The \(mode) flower's \(petal) petal has no \(title) choice.") }
+        let parentAngle = 2 * Double.pi * Double(parent) / Double(items.count)
+        let angle = ChoiceLayout.angle(of: index, count: items[parent].choices.count, around: parentAngle)
+        log("moving to \(title)")
+        let radius = Layout.choiceRadius
+        try await move(to: CGPoint(x: center.x + radius * sin(angle), y: center.y - radius * cos(angle)))
         try await Self.pause(0.6)
         try await screenshot("on \(title)")
     }

@@ -34,7 +34,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 private struct StatusMenu: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-    @AppStorage(CompressionSetting.key) private var compressionLevel = 50
 
     var body: some View {
         Text("While dragging a file, tap:")
@@ -42,11 +41,6 @@ private struct StatusMenu: View {
         Text("⌘  Tools")
         Text("⌃  Actions")
         Divider()
-        Picker("Compress To", selection: $compressionLevel) {
-            ForEach(CompressionSetting.choices, id: \.self) { level in
-                Text("\(level)%").tag(level)
-            }
-        }
         Toggle("Launch at Login", isOn: $launchAtLogin)
             .onChange(of: launchAtLogin) { enabled in
                 do {

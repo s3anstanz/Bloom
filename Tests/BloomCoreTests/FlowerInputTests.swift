@@ -24,6 +24,35 @@ final class PetalLayoutTests: XCTestCase {
     }
 }
 
+final class ChoiceLayoutTests: XCTestCase {
+    private func choice(at angle: Double, distance: CGFloat = 189, around petal: Double = 0) -> Int? {
+        let offset = CGPoint(x: distance * CGFloat(sin(angle)), y: distance * CGFloat(cos(angle)))
+        return ChoiceLayout.index(at: offset, count: 3, around: petal, glassRadius: 150)
+    }
+
+    func testThreeChoicesFanOutLeftToRightPastTheirPetal() {
+        XCTAssertEqual(choice(at: -.pi / 6), 0)
+        XCTAssertEqual(choice(at: 0), 1)
+        XCTAssertEqual(choice(at: .pi / 6), 2)
+        XCTAssertEqual(ChoiceLayout.angle(of: 0, count: 3, around: 0), -.pi / 6, accuracy: 0.0001)
+        XCTAssertEqual(ChoiceLayout.angle(of: 2, count: 3, around: 0), .pi / 6, accuracy: 0.0001)
+    }
+
+    func testChoicesAnswerFromTheGlassEdgeOutToTheirTips() {
+        XCTAssertNil(choice(at: 0, distance: 140))
+        XCTAssertEqual(choice(at: 0, distance: 152), 1)
+        XCTAssertEqual(choice(at: 0, distance: 226), 1)
+        XCTAssertNil(choice(at: 0, distance: 260))
+    }
+
+    func testNothingAnswersBesideTheFanOrAroundAnotherPetal() {
+        XCTAssertNil(choice(at: .pi / 2))
+        XCTAssertNil(choice(at: -.pi / 2))
+        XCTAssertEqual(choice(at: .pi, around: .pi), 1)
+        XCTAssertNil(choice(at: 0, around: .pi))
+    }
+}
+
 final class FlowerTabsTests: XCTestCase {
     private func tab(_ x: CGFloat, _ y: CGFloat) -> Mode? {
         FlowerTabs.mode(at: CGPoint(x: x, y: y), tabWidth: 96, height: 30)
