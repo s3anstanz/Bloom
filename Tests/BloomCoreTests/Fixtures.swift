@@ -15,11 +15,13 @@ enum Fixtures {
         return folder
     }
 
-    /// A pink circle and a blue box in one corner, so rotate and flip results differ from the original.
-    static func image(in folder: URL, name: String = "image.png", type: UTType = .png, transparent: Bool = true) throws -> URL {
+    /// A pink circle and a blue box in one corner, so rotate and flip results differ from the original. `clearPixel`
+    /// makes the top-right pixel see-through.
+    static func image(
+        in folder: URL, name: String = "image.png", type: UTType = .png, transparent: Bool = true, width: Int = 1200, height: Int = 800,
+        clearPixel: Bool = false
+    ) throws -> URL {
         let url = folder.appendingPathComponent(name)
-        let width = 1200
-        let height = 800
         guard
             let context = CGContext(
                 data: nil,
@@ -39,6 +41,7 @@ enum Fixtures {
         context.fillEllipse(in: CGRect(x: 350, y: 150, width: 500, height: 500))
         context.setFillColor(CGColor(red: 0.16, green: 0.56, blue: 0.96, alpha: 1))
         context.fill(CGRect(x: 80, y: 80, width: 220, height: 140))
+        if clearPixel { context.clear(CGRect(x: width - 1, y: height - 1, width: 1, height: 1)) }
         guard let image = context.makeImage(),
             let destination = CGImageDestinationCreateWithURL(url as CFURL, type.identifier as CFString, 1, nil)
         else { throw FixtureError("Couldn’t save the sample image.") }

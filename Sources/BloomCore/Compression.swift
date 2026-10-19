@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import ImageIO
 
 /// The sizes that bloom past the Compress petal. Dropping on Compress itself uses `balanced`.
 public enum CompressionLevel: CaseIterable {
@@ -57,11 +58,13 @@ public enum CompressionLevel: CaseIterable {
 
     /// What this size makes of files of these kinds: a short badge for its petal ("720p") and the end of its caption
     /// ("MP4, up to 720p"). Nil for a mix of kinds, whose results differ, and for PDFs, which have one size.
-    func result(for kinds: [FileKind], audioChannels: Int?) -> (badge: String, detail: String)? {
+    /// `transparent` says whether the images show through anywhere, and is nil when some do and some don't.
+    func result(for kinds: [FileKind], audioChannels: Int?, transparent: Bool?) -> (badge: String, detail: String)? {
         guard let kind = kinds.first, kinds.allSatisfy({ $0 == kind }) else { return nil }
         switch kind {
         case .image:
-            return ("\(maxPixelSize) px", "JPEG, up to \(maxPixelSize) px")
+            guard let transparent else { return nil }
+            return ("\(maxPixelSize) px", "\(transparent ? "PNG" : "JPEG"), up to \(maxPixelSize) px")
         case .video:
             return ("\(videoHeight)p", "MP4, up to \(videoHeight)p")
         case .audio:
@@ -79,6 +82,31 @@ public enum CompressionLevel: CaseIterable {
     /// Compressed audio keeps mono as mono and mixes anything wider down to stereo.
     static func channels(of file: URL) -> Int {
         min(Int((try? AVAudioFile(forReading: file).fileFormat.channelCount) ?? 2), 2)
+    }
+
+    /// Compressed images stay PNG when any pixel shows through, which JPEG would fill with white. Only images whose
+    /// header says they have an alpha channel are read, at full size so a single see-through pixel counts.
+    static func isTransparent(_ file: URL) -> Bool {
+        guard let source = CGImageSourceCreateWithURL(file as CFURL, nil),
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+            properties[kCGImagePropertyHasAlpha] as? Bool == true,
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else { return false }
+        guard
+            let context = CGContext(
+                data: nil,
+                width: image.width,
+                height: image.height,
+                bitsPerComponent: 8,
+                bytesPerRow: image.width * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { return false }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard let data = context.data else { return false }
+        let bytes = data.bindMemory(to: UInt8.self, capacity: image.width * image.height * 4)
+        return stride(from: 3, to: image.width * image.height * 4, by: 4).contains { bytes[$0] < 255 }
     }
 }
 

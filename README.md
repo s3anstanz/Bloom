@@ -83,7 +83,7 @@ When several files are dragged together, the flowers offer what works on all of 
 
 | Tool | Works on |
 |---|---|
-| Compress | Rest on it and three sizes bloom past it: **Smaller**, **Balanced** and **Sharper**; dropping on Compress itself makes Balanced. Images → JPG up to 1600, 2400 or 3200 px; video → MP4 up to 540p, 720p or 1080p; audio → AAC at 32, 64 or 96 kbps per channel. PDFs use macOS's Reduce File Size filter. A result that isn't smaller than the original isn't kept |
+| Compress | Rest on it and three sizes bloom past it: **Smaller**, **Balanced** and **Sharper**; dropping on Compress itself makes Balanced. Images → JPG up to 1600, 2400 or 3200 px, or PNG for images with transparency so it isn't filled in; video → MP4 up to 540p, 720p or 1080p; audio → AAC at 32, 64 or 96 kbps per channel. PDFs use macOS's Reduce File Size filter. A result that isn't smaller than the original isn't kept |
 | Half Size, Flip, Grayscale, No Meta (removes location and camera data) | Images |
 | Rotate | Images and PDFs |
 | Remove BG | Images, on macOS 14 or later |
