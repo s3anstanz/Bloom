@@ -70,7 +70,9 @@ classify() {
       echo "2 - the end-to-end journeys" ;;
     Support/*)
       echo "2 - Bloom.app's bundle" ;;
-    Tests/* | Sources/* | scripts/* | .swift-format | .github/workflows/ci.yml | .github/scripts/*)
+    Sources/*)
+      echo "2 - ships in Bloom.app" ;;
+    Tests/* | scripts/* | .swift-format | .github/workflows/ci.yml | .github/scripts/*)
       echo "1 - code checked by the build and unit tests" ;;
     *)
       echo "2 - no rule names this file, so it's tested through the app" ;;
