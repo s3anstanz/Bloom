@@ -394,8 +394,10 @@ public enum Engine {
         case .pdf:
             return try compressPDF(file)
         default:
-            let output = outputURL(for: file, ext: "jpg", suffix: " (compressed)")
-            try writeImage(loadImage(file, maxPixelSize: level.maxPixelSize), to: output, type: .jpeg, quality: level.jpegQuality)
+            let transparent = CompressionLevel.isTransparent(file)
+            let output = outputURL(for: file, ext: transparent ? "png" : "jpg", suffix: " (compressed)")
+            try writeImage(
+                loadImage(file, maxPixelSize: level.maxPixelSize), to: output, type: transparent ? .png : .jpeg, quality: level.jpegQuality)
             return output
         }
     }

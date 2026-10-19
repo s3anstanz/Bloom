@@ -16,10 +16,10 @@ enum Fixtures {
     }
 
     /// A pink circle and a blue box in one corner, so rotate and flip results differ from the original.
-    static func image(in folder: URL, name: String = "image.png", type: UTType = .png, transparent: Bool = true) throws -> URL {
+    static func image(
+        in folder: URL, name: String = "image.png", type: UTType = .png, transparent: Bool = true, width: Int = 1200, height: Int = 800
+    ) throws -> URL {
         let url = folder.appendingPathComponent(name)
-        let width = 1200
-        let height = 800
         guard
             let context = CGContext(
                 data: nil,
