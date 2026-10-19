@@ -136,12 +136,11 @@ enum Journeys {
             try await session.tap(.control)
             try await session.point(at: QuickAction.airDrop.title, in: .actions, files: [photo])
             let caption = Session.caption()
+            let before = Session.screenWindows()
             try await session.drop()
             if caption == QuickAction.airDrop.detail {
-                let said = try await session.result(after: QuickAction.airDrop.progress, detail: caption)
-                guard said == "AirDrop opened" else { throw Failure("Bloom said “\(said ?? "nothing")” instead of opening AirDrop.") }
-                try await Session.pause(1.5)
-                try await session.screenshotOfScreen("AirDrop")
+                let owner = try await session.expectNewWindow(besides: before)
+                session.note = "AirDrop opened its window, shown by \(owner)."
                 try await session.type(key: 53)
             } else {
                 guard let caption, !caption.isEmpty else { throw Failure("The AirDrop petal says nothing when pointed at.") }

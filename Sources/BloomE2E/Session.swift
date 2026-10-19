@@ -502,6 +502,7 @@ final class Session {
     func drop() async throws {
         log("letting go")
         guard Self.flowerWindow() != nil else {
+            try await screenshotOfScreen("flower closed")
             try await cancelDrag()
             throw Failure("The flower closed before the drop.")
         }
@@ -661,6 +662,37 @@ final class Session {
     static func bloomWindows(sized size: CGSize? = nil) -> [CGRect] {
         guard let bloom = NSRunningApplication.runningApplications(withBundleIdentifier: bloomID).first else { return [] }
         return windows(of: bloom.processIdentifier).filter { size == nil || $0.size == size }
+    }
+
+    /// Every app's windows on screen, to tell when a new one opens, like the AirDrop sheet.
+    static func screenWindows() -> [(owner: String, frame: CGRect)] {
+        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return [] }
+        return windows.compactMap { window in
+            guard let owner = window[kCGWindowOwnerName as String] as? String,
+                let bounds = window[kCGWindowBounds as String] as? NSDictionary,
+                let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary)
+            else { return nil }
+            return (owner, frame)
+        }
+    }
+
+    /// Waits for a window the size of a sheet or bigger, from any app but Finder, that wasn't on screen in `before`,
+    /// and returns the app showing it.
+    func expectNewWindow(besides before: [(owner: String, frame: CGRect)], timeout: Double = 8) async throws -> String {
+        func isNew(_ window: (owner: String, frame: CGRect)) -> Bool {
+            window.owner != "Finder" && window.frame.width >= 200 && window.frame.height >= 150
+                && !before.contains { $0.owner == window.owner && $0.frame == window.frame }
+        }
+        do {
+            let window = try await Self.waitFor("a new window", timeout: timeout) { Self.screenWindows().first(where: isNew) }
+            try await Self.pause(1)
+            try await screenshotOfScreen("new window")
+            return window.owner
+        } catch {
+            try? await screenshotOfScreen("no new window")
+            throw Failure("No new window opened. On screen: \(Self.screenWindows().map(\.owner).joined(separator: ", ")).")
+        }
     }
 
     private static func windows(of pid: pid_t) -> [CGRect] {

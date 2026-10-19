@@ -3,12 +3,12 @@ import BloomCore
 
 @MainActor
 enum QuickActions {
-    static let airDropOff = "AirDrop is off. Turn it on in Control Center"
+    static let airDropRefused = "macOS won’t AirDrop this right now"
 
     /// Why `action` can't work on this Mac right now, or nil when it can. The flower dims its petal and shows this.
     static func unavailability(of action: QuickAction, for files: [URL]) -> String? {
         switch action {
-        case .airDrop: return airDrop(for: files) == nil ? airDropOff : nil
+        case .airDrop: return airDrop(for: files) == nil ? airDropRefused : nil
         case .terminal: return terminal == nil ? "Terminal isn’t installed" : nil
         case .float, .copy, .move, .copyPath: return nil
         }
@@ -18,7 +18,7 @@ enum QuickActions {
     static func run(_ action: QuickAction, on files: [URL]) throws -> String? {
         switch action {
         case .airDrop:
-            guard let service = airDrop(for: files) else { throw ConversionError(airDropOff) }
+            guard let service = airDrop(for: files) else { throw ConversionError(airDropRefused) }
             NSApp.activate(ignoringOtherApps: true)
             service.perform(withItems: files)
             return "AirDrop opened"

@@ -35,7 +35,7 @@ These instructions apply to every agent working in this repository, including Cl
 - BloomCore never touches the network. Add no Swift packages.
 - New BloomCore behavior ships with tests that would fail if it broke. Assert results (files exist, open as their type, have the expected size or content), not implementation details.
 - A new way to drag, open, switch flowers or drop gets a journey in `Sources/BloomE2E` that fails if it breaks. A new kind of file gets a sample in the petal matrix.
-- A petal that can't work on this Mac, like AirDrop while it's off, is shown dimmed with the reason (`WheelItem.unavailable`), never offered and left to fail.
+- A petal that can't work on this Mac, like AirDrop when macOS won't send the file, is shown dimmed with the reason (`WheelItem.unavailable`), never offered and left to fail.
 - Minimum macOS 13. Gate newer APIs with `#available` and hide the petal when unavailable.
 - Never modify the original file; write results beside it with Finder-style unique names.
 - Report a Problem and Send Feedback open a GitHub issue form in the person's browser, filled in by `IssueReport`: the Bloom version and commit, macOS version and Mac chip, and for a failed petal the petal, file types and Bloom's message with file and folder names taken out. The person reads and submits it; the app sends nothing itself.

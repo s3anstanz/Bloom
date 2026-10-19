@@ -104,7 +104,7 @@ When several files are dragged together, the flowers offer what works on all of 
 | **Copy Path** | Copies the full path |
 | **Terminal** | Opens the file's folder in Terminal |
 
-When an action can't work on your Mac, such as AirDrop while it's off, its petal is dimmed and says why.
+When an action can't work on your Mac, such as AirDrop when macOS won't send the file, its petal is dimmed and says why.
 
 ## Feedback
 

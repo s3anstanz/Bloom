@@ -148,7 +148,7 @@ final class FlowerPreview {
         model.items = model.items.map { item in
             guard case .action(.airDrop) = item.operation else { return item }
             var item = item
-            item.unavailable = QuickActions.airDropOff
+            item.unavailable = QuickActions.airDropRefused
             return item
         }
         var stills: [Still] = []

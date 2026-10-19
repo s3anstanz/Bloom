@@ -171,8 +171,9 @@ enum Matrix {
         if case .action(let action) = petal.item.operation {
             if action == .copy || action == .copyPath { NSPasteboard.general.clearContents() }
             let wasRunning = Session.terminalIsRunning
+            let windows = Session.screenWindows()
             try await session.drop()
-            return try await check(action, on: files, session: session, terminalWasRunning: wasRunning)
+            return try await check(action, on: files, session: session, terminalWasRunning: wasRunning, windowsBefore: windows)
         }
         try await session.drop()
         let said = try await session.result(after: petal.item.progress, detail: petal.item.detail)
@@ -194,16 +195,14 @@ enum Matrix {
         _ action: QuickAction,
         on files: [URL],
         session: Session,
-        terminalWasRunning: Bool
+        terminalWasRunning: Bool,
+        windowsBefore: [(owner: String, frame: CGRect)]
     ) async throws -> (Outcome.Verdict, String) {
         switch action {
         case .airDrop:
-            let said = try await session.result(after: action.progress, detail: action.detail)
-            guard said == "AirDrop opened" else { return (.failed, said ?? "AirDrop didn’t open.") }
-            try await Session.pause(1)
-            try await session.screenshotOfScreen("AirDrop")
+            let owner = try await session.expectNewWindow(besides: windowsBefore)
             try await session.type(key: 53)
-            return (.worked, "AirDrop opened")
+            return (.worked, "AirDrop opened its window, shown by \(owner)")
         case .float:
             let card = try await session.expectFloatCard()
             try await session.closeFloatCard(card)
