@@ -6,13 +6,18 @@ import PDFKit
 import UniformTypeIdentifiers
 
 /// Why a file Bloom saved is unusable, or nil when it exists, has content and opens as the type its extension claims.
+/// A folder, like Split's pages, needs something in it, and each thing in it is checked the same way.
 public func defect(in url: URL) async -> String? {
     let name = url.lastPathComponent
     var isFolder: ObjCBool = false
     guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isFolder) else { return "\(name) is missing" }
     if isFolder.boolValue {
-        let contents = (try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []
-        return contents.isEmpty ? "\(name) is an empty folder" : nil
+        let contents = ((try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []).filter { !$0.hasPrefix(".") }
+        guard !contents.isEmpty else { return "\(name) is an empty folder" }
+        for item in contents.sorted() {
+            if let problem = await defect(in: url.appendingPathComponent(item)) { return "\(name)/\(problem)" }
+        }
+        return nil
     }
     let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
     guard size > 0 else { return "\(name) is empty" }

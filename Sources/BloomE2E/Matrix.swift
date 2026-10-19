@@ -72,11 +72,11 @@ enum Matrix {
         let session = Session(journey: "matrix-\(number)", output: output)
         session.stepShots = false
         var files: [URL]
-        var originals: [URL: Data]
+        var originals: [String: Data]
         do {
             try session.start()
             files = try await sample.make(session.folder)
-            originals = Dictionary(uniqueKeysWithValues: files.compactMap { file in (try? Data(contentsOf: file)).map { (file, $0) } })
+            originals = snapshot(files)
             try await session.openInFinder()
         } catch {
             let detail = "Couldn’t set up the sample: \(error.localizedDescription)"
@@ -106,8 +106,7 @@ enum Matrix {
                     try? FileManager.default.createDirectory(at: session.folder, withIntermediateDirectories: true)
                     if let remade = try? await sample.make(session.folder) {
                         files = remade
-                        originals = Dictionary(
-                            uniqueKeysWithValues: remade.compactMap { file in (try? Data(contentsOf: file)).map { (file, $0) } })
+                        originals = snapshot(remade)
                     }
                 }
                 print("\(outcome.0 == .failed ? "FAIL" : "PASS") \(sample.name) · \(petal.label): \(outcome.1)")
@@ -253,13 +252,36 @@ enum Matrix {
         }
     }
 
-    /// Why the sample isn't as it was, or nil when every file is still there and unchanged.
-    private static func changed(_ files: [URL], from originals: [URL: Data]) -> String? {
+    /// The bytes of every file in the sample, a folder's included, by its path inside the sample's folder.
+    private static func snapshot(_ files: [URL]) -> [String: Data] {
+        var contents: [String: Data] = [:]
         for file in files {
-            guard FileManager.default.fileExists(atPath: file.path) else { return "\(file.lastPathComponent) is gone." }
-            if let original = originals[file], (try? Data(contentsOf: file)) != original {
-                return "\(file.lastPathComponent) was changed."
+            let parent = file.deletingLastPathComponent().path + "/"
+            var paths = [file]
+            // Finder's hidden .DS_Store files come and go with the windows it shows, so they don't count.
+            if let walk = FileManager.default.enumerator(at: file, includingPropertiesForKeys: nil, options: .skipsHiddenFiles) {
+                paths += walk.compactMap { $0 as? URL }
             }
+            for path in paths where !path.hasDirectoryPath || path == file {
+                if let data = try? Data(contentsOf: path) {
+                    contents[String(path.path.dropFirst(parent.count))] = data
+                }
+            }
+        }
+        return contents
+    }
+
+    /// Why the sample isn't as it was, or nil when every file, and everything in a folder, is there and unchanged.
+    private static func changed(_ files: [URL], from originals: [String: Data]) -> String? {
+        for file in files where !FileManager.default.fileExists(atPath: file.path) {
+            return "\(file.lastPathComponent) is gone."
+        }
+        let now = snapshot(files)
+        if let path = originals.keys.sorted().first(where: { now[$0] != originals[$0] }) {
+            return now[path] == nil ? "\(path) is gone." : "\(path) was changed."
+        }
+        if let added = now.keys.sorted().first(where: { originals[$0] == nil }) {
+            return "\(added) appeared inside the sample."
         }
         return nil
     }
