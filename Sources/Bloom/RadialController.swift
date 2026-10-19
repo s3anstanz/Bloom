@@ -181,7 +181,7 @@ final class RadialController {
                     message = Self.savedMessage(outputs)
                 case .action(let action):
                     if action == .move { self.hideNow() }
-                    guard let result = try QuickActions.run(action, on: files) else {
+                    guard let result = try await QuickActions.run(action, on: files) else {
                         self.hideNow()
                         MenuBarIcon.shared.finished(saved: false)
                         return

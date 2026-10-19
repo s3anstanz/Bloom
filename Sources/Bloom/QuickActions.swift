@@ -4,11 +4,22 @@ import BloomCore
 @MainActor
 enum QuickActions {
     /// Returns the status line to show, or nil when the person cancelled.
-    static func run(_ action: QuickAction, on files: [URL]) throws -> String? {
+    static func run(_ action: QuickAction, on files: [URL]) async throws -> String? {
         switch action {
         case .airDrop:
-            guard let service = NSSharingService(named: .sendViaAirDrop), service.canPerform(withItems: files) else {
+            guard let service = NSSharingService(named: .sendViaAirDrop) else {
                 throw ConversionError("AirDrop isn’t available on this Mac.")
+            }
+            // AirDrop takes only files Bloom may read on its own, and it says yes if any one file passes, so check each.
+            let refused = files.filter { !service.canPerform(withItems: [$0]) }
+            if !refused.isEmpty {
+                // A drag doesn't count for folders like the Desktop. Reading the folder makes macOS ask the person, once.
+                let refusal = await FolderAccess.resolve(refused, canShare: { service.canPerform(withItems: [$0]) })
+                guard refusal.inDeniedFolders.isEmpty else {
+                    throw ConversionError(FolderAccess.deniedMessage(for: refusal.inDeniedFolders))
+                }
+                // Readable and still refused isn't a folder problem; AirDrop itself is off or unavailable.
+                guard refusal.otherwise.isEmpty else { throw ConversionError("AirDrop isn’t available on this Mac.") }
             }
             NSApp.activate(ignoringOtherApps: true)
             service.perform(withItems: files)

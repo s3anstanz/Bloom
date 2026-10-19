@@ -97,7 +97,7 @@ When several files are dragged together, the flowers offer what works on all of 
 
 | Action | What it does |
 |---|---|
-| **AirDrop** | Opens the AirDrop sheet |
+| **AirDrop** | Opens the AirDrop sheet. The first AirDrop from your Desktop, Documents or Downloads asks for access to that folder |
 | **Float** | Keeps the file in a small card on screen. Drag its icon anywhere later to drop a copy, double-click to open, drag the card's edge to move it, ✕ to close |
 | **Copy** | Puts the file on the clipboard, ready to paste with ⌘V |
 | **Move** | Asks for a folder and moves the file there |
