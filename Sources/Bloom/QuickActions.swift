@@ -50,7 +50,15 @@ enum QuickActions {
     }
 
     private static func airDrop(for files: [URL]) -> NSSharingService? {
-        guard let service = NSSharingService(named: .sendViaAirDrop), service.canPerform(withItems: files) else { return nil }
+        guard let service = NSSharingService(named: .sendViaAirDrop) else {
+            dragLog.notice("AirDrop: macOS has no AirDrop service for Bloom")
+            return nil
+        }
+        guard service.canPerform(withItems: files) else {
+            let readable = files.allSatisfy { FileManager.default.isReadableFile(atPath: $0.path) }
+            dragLog.notice("AirDrop: macOS can't send these \(files.count, privacy: .public) files; readable by Bloom: \(readable, privacy: .public)")
+            return nil
+        }
         return service
     }
 
