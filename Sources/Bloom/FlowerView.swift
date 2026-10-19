@@ -340,7 +340,6 @@ private struct ChoiceBacking: Shape {
     }
 }
 
-/// A petal pointing outward at `angle` (radians clockwise from 12 o'clock): narrow at the center, round at the tip.
 private struct Petal: Shape {
     let angle: Double
     let width: CGFloat
@@ -348,29 +347,7 @@ private struct Petal: Shape {
     let outer: CGFloat
 
     func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let cosine = CGFloat(cos(angle))
-        let sine = CGFloat(sin(angle))
-        // `across` runs sideways over the petal; `out` runs from the flower's center toward the tip.
-        func point(_ across: CGFloat, _ out: CGFloat) -> CGPoint {
-            CGPoint(x: center.x + across * cosine + out * sine, y: center.y + across * sine - out * cosine)
-        }
-        let length = outer - inner
-        let half = width / 2
-        var path = Path()
-        path.move(to: point(0, inner))
-        path.addCurve(
-            to: point(0, outer),
-            control1: point(half * 1.25, inner + length * 0.35),
-            control2: point(half, outer + length * 0.06)
-        )
-        path.addCurve(
-            to: point(0, inner),
-            control1: point(-half, outer + length * 0.06),
-            control2: point(-half * 1.25, inner + length * 0.35)
-        )
-        path.closeSubpath()
-        return path
+        Path(PetalLayout.outline(center: CGPoint(x: rect.midX, y: rect.midY), angle: angle, width: width, inner: inner, outer: outer))
     }
 }
 

@@ -58,7 +58,7 @@ git clone https://github.com/s3anstanz/Bloom.git ~/Bloom
 ~/Bloom/scripts/install.sh
 ```
 
-Bloom runs from the menu bar (flower icon). From that menu you can turn on **Launch at Login**. To get the latest version:
+Bloom runs from the menu bar. Its flower icon opens while you drag a file, circles while Bloom works and fills its center when a result is saved. From that menu you can turn on **Launch at Login**. To get the latest version:
 
 ```bash
 ~/Bloom/scripts/update.sh
@@ -104,6 +104,10 @@ When several files are dragged together, the flowers offer what works on all of 
 | **Copy Path** | Copies the full path |
 | **Terminal** | Opens the file's folder in Terminal |
 
+## Feedback
+
+**Report a Problem…** and **Send Feedback…** in Bloom's menu open a GitHub issue in your browser, already filled in with your Bloom version, macOS version and Mac. After a drop fails, Report a Problem also fills in the petal, the file type and Bloom's error, never the file's name or folder. Read it, add what you like and submit it; nothing is sent before you do. You need a GitHub account.
+
 ## Permissions
 
 - macOS may ask once per folder (such as Desktop or Documents) to let Bloom save files there.
@@ -120,7 +124,7 @@ When several files are dragged together, the flowers offer what works on all of 
 | Render each moment of the flower as a GIF | `swift run Bloom --preview build/preview` |
 | Play the end-to-end journeys | `scripts/e2e.sh` |
 
-- `Sources/BloomCore`: everything about files: which petals a file gets, every conversion and tool, key taps and petal hit-testing.
+- `Sources/BloomCore`: everything about files: which petals a file gets, every conversion and tool, key taps, petal hit-testing and what a problem report says.
 - `Sources/Bloom`: the menu-bar app, drag detection, the flower, Float cards and the Actions petals.
 - `Sources/BloomRender`: a helper bundled inside Bloom.app that renders documents to PDF, keeping the app responsive during long documents.
 - `Sources/BloomE2E`: end-to-end journeys that drag files out of Finder into the real app and check what it saves.
@@ -130,7 +134,7 @@ Every pull request is built and tested on a Mac by GitHub Actions, the end-to-en
 
 ## Privacy and security
 
-Bloom reads the files you drop on it and writes results beside them. It has no network code, no analytics and no third-party dependencies, and CI fails if networking code appears in BloomCore. To report a security problem, see [SECURITY.md](SECURITY.md).
+Bloom reads the files you drop on it and writes results beside them. It has no network code, no analytics and no third-party dependencies, and CI fails if networking code appears in BloomCore. Feedback goes through your browser, only when you submit it. To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## License
 

@@ -24,3 +24,10 @@ The **E2E** workflow plays Bloom's end-to-end journeys on a Mac runner for every
 ## Commit and PR titles
 
 Use [Conventional Commits](https://www.conventionalcommits.org): `feat: add WebP petal`, `fix: keep EXIF orientation when compressing`, `chore: bump CodeQL`.
+
+## Releasing
+
+Bloom's version is `CFBundleShortVersionString` in `Support/Info.plist`, and the menu shows it. Versions follow [Semantic Versioning](https://semver.org) and stay below 1.0 for now: the middle number goes up for new petals and behavior, the last one for fixes.
+
+1. Open a pull request titled `chore: release 0.x.y` that changes that version.
+2. Once it merges, tag the merge commit `v0.x.y` and publish a GitHub release for the tag, with notes generated from the pull requests merged since the last one.

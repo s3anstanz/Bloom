@@ -114,6 +114,7 @@ final class FlowerPreview {
             self.show(.convert, now < 0 ? Self.settled : letGo)
         }
 
+        try writeMenuBarIcon()
         try writeIndex()
     }
 
@@ -340,8 +341,71 @@ final class FlowerPreview {
         let transparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency ? "on" : "off"
         let settings = "Reduce Motion \(motion), Reduce Transparency \(transparency)"
         print("Rendered with \(settings).")
-        let text = "<table>\n\(rows.joined(separator: "\n"))\n</table>\n\nStills: \(stills)\n\nRendered with \(settings).\n"
+        let icon = "**Menu bar icon** on a light and a dark menu bar, then close up:\n\n<img src=\"menu-bar-icon.png\" width=\"360\">"
+        let text = "<table>\n\(rows.joined(separator: "\n"))\n</table>\n\nStills: \(stills)\n\n\(icon)\n\nRendered with \(settings).\n"
         try text.write(to: folder.appendingPathComponent("preview.md"), atomically: true, encoding: .utf8)
+    }
+
+    /// `menu-bar-icon.png`: each state of the menu bar icon, at two pixels per point as on a Retina display.
+    private func writeMenuBarIcon() throws {
+        let states: [(state: MenuBarIcon.State, lead: Int?, label: String)] = [
+            (.resting, nil, "Resting"),
+            (.open, nil, "Dragging"),
+            (.working, 0, "Working 1"),
+            (.working, 2, "Working 2"),
+            (.working, 4, "Working 3"),
+            (.saved, nil, "Saved"),
+        ]
+        // A 22-point light menu bar, a dark one, then a close-up.
+        let rows: [(background: NSColor, glyph: NSColor, height: Int, side: CGFloat)] = [
+            (NSColor(white: 0.93, alpha: 1), .black, 44, 32),
+            (NSColor(white: 0.17, alpha: 1), .white, 44, 32),
+            (.white, .black, 150, 128),
+        ]
+        let cell = 120
+        let band = 34
+        let width = cell * states.count
+        let height = band + rows.reduce(0) { $0 + $1.height }
+        guard
+            let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { throw Failure("Couldn’t draw the menu bar icon.") }
+        context.translateBy(x: 0, y: CGFloat(height))
+        context.scaleBy(x: 1, y: -1)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
+        NSColor(white: 0.08, alpha: 1).setFill()
+        NSRect(x: 0, y: 0, width: width, height: band).fill()
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 22, weight: .semibold),
+            .foregroundColor: NSColor.white,
+        ]
+        for (slot, item) in states.enumerated() {
+            (item.label as NSString).draw(at: NSPoint(x: slot * cell + 8, y: 4), withAttributes: attributes)
+        }
+        var top = band
+        for row in rows {
+            row.background.setFill()
+            NSRect(x: 0, y: top, width: width, height: row.height).fill()
+            for (slot, item) in states.enumerated() {
+                context.saveGState()
+                let inset = (CGFloat(cell) - row.side) / 2
+                context.translateBy(x: CGFloat(slot * cell) + inset, y: CGFloat(top) + (CGFloat(row.height) - row.side) / 2)
+                MenuBarGlyph.paint(item.state, lead: item.lead, in: context, side: row.side, color: row.glyph)
+                context.restoreGState()
+            }
+            top += row.height
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        guard let image = context.makeImage() else { throw Failure("Couldn’t draw the menu bar icon.") }
+        try writePNG(image, to: folder.appendingPathComponent("menu-bar-icon.png"))
     }
 
     private func samplePhoto() throws -> URL {

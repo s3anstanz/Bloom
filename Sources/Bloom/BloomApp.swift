@@ -6,10 +6,14 @@ import SwiftUI
 @main
 struct BloomApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @StateObject private var icon = MenuBarIcon.shared
 
     var body: some Scene {
-        MenuBarExtra("Bloom", systemImage: "camera.macro") {
+        MenuBarExtra {
             StatusMenu()
+        } label: {
+            Image(nsImage: icon.image)
+                .accessibilityLabel("Bloom")
         }
     }
 }
@@ -54,7 +58,12 @@ private struct StatusMenu: View {
                 }
             }
         Divider()
-        Text("Bloom \(BloomCore.version)")
+        Button("Report a Problem…") { IssueLink.reportProblem() }
+        Button("Send Feedback…") { IssueLink.sendFeedback() }
+        Divider()
+        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+            Text("Bloom \(version)")
+        }
         Button("Quit Bloom") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }

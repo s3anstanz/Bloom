@@ -152,6 +152,7 @@ final class RadialController {
         let choices = model.openChoices == index ? model.items[index].choices : []
         let choice = model.highlightedChoice.flatMap { choices.indices.contains($0) ? $0 : nil }
         let item = choice.map { choices[$0] } ?? model.items[index]
+        let petal = choice.map { "\(model.items[index].title) (\(choices[$0].title))" } ?? item.title
         let files = self.files
         choiceTask?.cancel()
         // DragWatcher can see the mouse-up first and start folding the flower away before this drop arrives.
@@ -164,6 +165,7 @@ final class RadialController {
         model.timeline.chosen = index
         model.timeline.chosenChoice = choice
         animate()
+        MenuBarIcon.shared.working()
         Task { @MainActor in
             do {
                 let message: String
@@ -181,6 +183,7 @@ final class RadialController {
                     if action == .move { self.hideNow() }
                     guard let result = try QuickActions.run(action, on: files) else {
                         self.hideNow()
+                        MenuBarIcon.shared.finished(saved: false)
                         return
                     }
                     message = result
@@ -188,12 +191,20 @@ final class RadialController {
                 self.model.phase = .done
                 self.model.status = message
                 self.finish(succeeded: true)
+                MenuBarIcon.shared.finished(saved: true)
                 NSSound(named: "Pop")?.play()
                 self.dismiss(after: 1.4)
             } catch {
+                IssueLink.lastFailure = IssueReport.Failure(
+                    petal: petal,
+                    mode: self.model.mode,
+                    files: files,
+                    message: error.localizedDescription
+                )
                 self.model.phase = .failed
                 self.model.status = error.localizedDescription
                 self.finish(succeeded: false)
+                MenuBarIcon.shared.finished(saved: false)
                 self.dismiss(after: 4)
             }
         }
