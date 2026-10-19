@@ -1,3 +1,4 @@
+import BloomFixtures
 import CoreGraphics
 import XCTest
 

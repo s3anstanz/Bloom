@@ -3,13 +3,22 @@ import BloomCore
 
 @MainActor
 enum QuickActions {
+    static let airDropOff = "AirDrop is off. Turn it on in Control Center"
+
+    /// Why `action` can't work on this Mac right now, or nil when it can. The flower dims its petal and shows this.
+    static func unavailability(of action: QuickAction, for files: [URL]) -> String? {
+        switch action {
+        case .airDrop: return airDrop(for: files) == nil ? airDropOff : nil
+        case .terminal: return terminal == nil ? "Terminal isn’t installed" : nil
+        case .float, .copy, .move, .copyPath: return nil
+        }
+    }
+
     /// Returns the status line to show, or nil when the person cancelled.
     static func run(_ action: QuickAction, on files: [URL]) throws -> String? {
         switch action {
         case .airDrop:
-            guard let service = NSSharingService(named: .sendViaAirDrop), service.canPerform(withItems: files) else {
-                throw ConversionError("AirDrop isn’t available on this Mac.")
-            }
+            guard let service = airDrop(for: files) else { throw ConversionError(airDropOff) }
             NSApp.activate(ignoringOtherApps: true)
             service.perform(withItems: files)
             return "AirDrop opened"
@@ -27,15 +36,22 @@ enum QuickActions {
             NSPasteboard.general.setString(files.map(\.path).joined(separator: "\n"), forType: .string)
             return files.count == 1 ? "Path copied" : "\(files.count) paths copied"
         case .terminal:
-            guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else {
-                throw ConversionError("Terminal isn’t installed.")
-            }
+            guard let terminal else { throw ConversionError("Terminal isn’t installed.") }
             let isFolder = (try? files[0].resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
             let folder = isFolder ? files[0] : files[0].deletingLastPathComponent()
             NSWorkspace.shared.open(
                 [folder], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
             return "Opened in Terminal"
         }
+    }
+
+    private static var terminal: URL? {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
+    }
+
+    private static func airDrop(for files: [URL]) -> NSSharingService? {
+        guard let service = NSSharingService(named: .sendViaAirDrop), service.canPerform(withItems: files) else { return nil }
+        return service
     }
 
     private static func move(_ files: [URL]) throws -> String? {

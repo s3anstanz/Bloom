@@ -1,4 +1,5 @@
 import BloomCore
+import BloomFixtures
 import ImageIO
 import XCTest
 
@@ -60,6 +61,19 @@ final class CompressionTests: XCTestCase {
         }
         XCTAssertEqual(sizes, sizes.sorted())
         XCTAssertEqual(Set(sizes).count, sizes.count, "Each size should make a different file: \(sizes)")
+    }
+
+    func testEachVideoSizeMakesAPlayableMP4SmallerThanTheOriginal() async throws {
+        let clip = try await Fixtures.video(in: folder, detailed: true)
+        let original = try size(clip)
+        for level in CompressionLevel.allCases {
+            let output = try XCTUnwrap(try await Engine.compress([clip], level: level).first)
+            XCTAssertEqual(output.lastPathComponent, "clip (compressed).mp4")
+            XCTAssertLessThan(try size(output), original, level.title)
+            let problem = await defect(in: output)
+            XCTAssertNil(problem, level.title)
+            try FileManager.default.removeItem(at: output)
+        }
     }
 
     func testCompressingWhatWouldNotShrinkSavesNothing() async throws {

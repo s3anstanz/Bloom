@@ -104,6 +104,8 @@ When several files are dragged together, the flowers offer what works on all of 
 | **Copy Path** | Copies the full path |
 | **Terminal** | Opens the file's folder in Terminal |
 
+When an action can't work on your Mac, such as AirDrop while it's off, its petal is dimmed and says why.
+
 ## Feedback
 
 **Report a Problem…** and **Send Feedback…** in Bloom's menu open a GitHub issue in your browser, already filled in with your Bloom version, macOS version and Mac. After a drop fails, Report a Problem also fills in the petal, the file type and Bloom's error, never the file's name or folder. Read it, add what you like and submit it; nothing is sent before you do. You need a GitHub account.
@@ -123,14 +125,16 @@ When several files are dragged together, the flowers offer what works on all of 
 | Check BloomCore stays offline | `scripts/check-no-network.sh` |
 | Render each moment of the flower as a GIF | `swift run Bloom --preview build/preview` |
 | Play the end-to-end journeys | `scripts/e2e.sh` |
+| Drop a sample of every kind of file on every petal | `scripts/e2e.sh --matrix` |
 
 - `Sources/BloomCore`: everything about files: which petals a file gets, every conversion and tool, key taps, petal hit-testing and what a problem report says.
 - `Sources/Bloom`: the menu-bar app, drag detection, the flower, Float cards and the Actions petals.
 - `Sources/BloomRender`: a helper bundled inside Bloom.app that renders documents to PDF, keeping the app responsive during long documents.
-- `Sources/BloomE2E`: end-to-end journeys that drag files out of Finder into the real app and check what it saves.
+- `Sources/BloomE2E`: end-to-end journeys that drag files out of Finder into the real app and check what it saves, and the petal matrix.
+- `Sources/BloomFixtures`: generates the sample photos, PDFs, videos, audio, documents, subtitles and archives the tests and journeys use, and checks that a result opens as its type.
 - `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
 
-Every pull request is built and tested on a Mac by GitHub Actions, the end-to-end journeys play on the real app, and the finished `Bloom.app` is attached to the run. Pull requests labelled `preview` also get a comment with a GIF of each moment of the flower. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Every pull request is built and tested on macOS 15 and macOS 26 by GitHub Actions, the end-to-end journeys play on the real app, and the finished `Bloom.app` is attached to the run. Pull requests labelled `preview` also get a comment with a GIF of each moment of the flower. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy and security
 

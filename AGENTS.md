@@ -12,15 +12,16 @@ These instructions apply to every agent working in this repository, including Cl
 - Offline guard: `scripts/check-no-network.sh`
 - Package only: `scripts/bundle.sh release build/Bloom.app`
 - Flower preview: `swift run Bloom --preview build/preview` writes a GIF and a strip of stills for each moment of the flower. Add the `preview` label to a pull request that changes how the flower looks or moves: the Preview workflow renders them on a Mac runner, posts them as a comment and refreshes it on every push. Read the stills there to check the change.
-- End-to-end: `scripts/e2e.sh` plays the journeys in `Sources/BloomE2E` on the real app. Each drags a file out of Finder with real mouse and key events, opens a flower, drops and checks what Bloom saves. The E2E workflow plays them on every pull request and on `main` and shows each step's screenshot in the run's summary; read those to check how a change behaves.
+- End-to-end: `scripts/e2e.sh` plays the journeys in `Sources/BloomE2E` on the real app. Each drags a file out of Finder with real mouse and key events, opens a flower, drops and checks what Bloom saves, or what an action does. `scripts/e2e.sh --matrix` also plays the petal matrix: a generated sample of every kind of file dropped on every petal Bloom offers for it, each result checked to open as its type, with a table of what worked, what can't work on that Mac and why, and what failed. The E2E workflow plays the journeys on every pull request and the matrix on `main`, weekly and on pull requests labelled `full-e2e`, on macOS 15 and 26, and shows the screenshots in the run's summary; read those to check how a change behaves.
 
 ## Layout
 
 - `Sources/BloomCore`: file logic (petal catalog, conversions, tools, actions, naming). Public API for the app; covered by tests.
 - `Sources/Bloom`: menu bar, drag detection, flower UI. Keep logic out of here; move anything testable into BloomCore.
 - `Sources/BloomRender`: helper executable bundled in Bloom.app that prints documents to PDF, so AppKit text printing never runs on the app's main thread.
-- `Sources/BloomE2E`: end-to-end journeys for `scripts/e2e.sh`, driving Finder and Bloom the way a person does.
-- `Tests/BloomCoreTests`: XCTest. Generate fixtures in the test; don't commit binary samples.
+- `Sources/BloomE2E`: end-to-end journeys and the petal matrix for `scripts/e2e.sh`, driving Finder and Bloom the way a person does.
+- `Sources/BloomFixtures`: sample files generated on the fly for the tests and the journeys, and `defect(in:)`, which says why a result doesn't open as its type.
+- `Tests/BloomCoreTests`: XCTest. Generate fixtures with `BloomFixtures`; don't commit binary samples.
 - `Support/Info.plist`: bundle metadata: identifier `com.westfalllabs.bloom` and the version the menu shows (releasing: `CONTRIBUTING.md`).
 
 ## Rules
@@ -28,7 +29,8 @@ These instructions apply to every agent working in this repository, including Cl
 - Every change lands through a pull request; the maintainer merges. CI (format, offline guard, warnings-as-errors build, tests, CodeQL for workflow files) must pass. CodeQL for Swift runs on `main` after each merge and weekly; fix its findings in a follow-up pull request.
 - BloomCore never touches the network. Add no Swift packages.
 - New BloomCore behavior ships with tests that would fail if it broke. Assert results (files exist, open as their type, have the expected size or content), not implementation details.
-- A new way to drag, open, switch flowers or drop gets a journey in `Sources/BloomE2E` that fails if it breaks.
+- A new way to drag, open, switch flowers or drop gets a journey in `Sources/BloomE2E` that fails if it breaks. A new kind of file gets a sample in the petal matrix.
+- A petal that can't work on this Mac, like AirDrop while it's off, is shown dimmed with the reason (`WheelItem.unavailable`), never offered and left to fail.
 - Minimum macOS 13. Gate newer APIs with `#available` and hide the petal when unavailable.
 - Never modify the original file; write results beside it with Finder-style unique names.
 - Report a Problem and Send Feedback open a GitHub issue form in the person's browser, filled in by `IssueReport`: the Bloom version and commit, macOS version and Mac chip, and for a failed petal the petal, file types and Bloom's message with file and folder names taken out. The person reads and submits it; the app sends nothing itself.

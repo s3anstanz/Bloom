@@ -11,7 +11,11 @@
 
 Add the `preview` label to a pull request that changes how the flower looks or moves. The Preview workflow then runs Bloom on a Mac runner and posts a **Flower preview** comment with each moment as a looping GIF and stills: the bloom, pointing at petals, switching flowers, resting on Compress until its sizes open and pointing at each, a drop that saves, a drop that fails, and letting go. It refreshes the comment on every push while the label stays. To make the same files on your Mac, run `swift run Bloom --preview build/preview`; macOS asks once to let your terminal record the screen.
 
-The **E2E** workflow plays Bloom's end-to-end journeys on a Mac runner for every pull request. It drags files out of Finder with real mouse and key events, taps ⇧, ⌘ and ⌃, drops on petals and checks what Bloom saves, and the run's summary shows a screenshot of each step. To play them on your Mac, run `scripts/e2e.sh`. It quits any running Bloom, and your terminal needs Accessibility, Screen Recording and Automation access.
+The **E2E** workflow plays Bloom's end-to-end journeys on macOS 15 and macOS 26 runners for every pull request. It drags files out of Finder with real mouse and key events, taps ⇧, ⌘ and ⌃, drops on petals and checks what Bloom saves or what each action does, and the run's summary shows a screenshot of each step.
+
+The **petal matrix** goes further: it generates a sample of every kind of file Bloom handles, drops each on every petal of every flower and checks each result opens as its type. Its table marks each petal ✅ worked, ⚪ had nothing to do or can't work on that Mac (with Bloom's reason), or ❌ failed (with what went wrong). It runs on `main`, every Monday, from the Actions tab, and on pull requests labelled `full-e2e`. GitHub's runners are virtual Macs without AirDrop, so only a run on a real Mac sends to AirDrop.
+
+To play them on your Mac, run `scripts/e2e.sh`, or `scripts/e2e.sh --matrix` for the matrix too; name journeys or samples to play only those. It quits any running Bloom, and your terminal needs Accessibility, Screen Recording and Automation access.
 
 ## Ground rules
 

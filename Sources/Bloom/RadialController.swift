@@ -89,7 +89,12 @@ final class RadialController {
         Task { @MainActor in
             let items = await WheelCatalog.items(for: files, mode: mode)
             guard current == self.presentation, self.model.phase == .choosing else { return }
-            self.model.items = items
+            self.model.items = items.map { item in
+                guard case .action(let action) = item.operation else { return item }
+                var item = item
+                item.unavailable = QuickActions.unavailability(of: action, for: files)
+                return item
+            }
             self.model.itemsLoaded = true
             self.model.timeline.petalsShown = Self.now
             self.animate()
@@ -141,13 +146,15 @@ final class RadialController {
                 choiceTask?.cancel()
             }
         }
-        return index != nil
+        // A dimmed petal turns the drop down, so the pointer shows it won't land there.
+        return index.map { model.items[$0].unavailable == nil } ?? false
     }
 
     func performDrop() -> Bool {
         guard model.phase == .choosing,
             let index = model.highlighted,
-            model.items.indices.contains(index)
+            model.items.indices.contains(index),
+            model.items[index].unavailable == nil
         else { return false }
         let choices = model.openChoices == index ? model.items[index].choices : []
         let choice = model.highlightedChoice.flatMap { choices.indices.contains($0) ? $0 : nil }

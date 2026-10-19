@@ -1,5 +1,6 @@
 import AppKit
 import BloomCore
+import BloomFixtures
 import ImageIO
 import XCTest
 
@@ -31,9 +32,11 @@ final class ConversionTests: XCTestCase {
             name: "page.html",
             contents: "<html><body><h1>Bloom</h1><p>\(Fixtures.text)</p></body></html>"
         )
-        await assertEveryPetalWorks(for: [txt])
-        await assertEveryPetalWorks(for: [rtf])
-        await assertEveryPetalWorks(for: [html])
+        let docx = try Fixtures.document(in: folder, name: "letter.docx", type: .officeOpenXML)
+        let odt = try Fixtures.document(in: folder, name: "letter.odt", type: .openDocument)
+        for document in [txt, rtf, html, docx, odt] {
+            await assertEveryPetalWorks(for: [document])
+        }
     }
 
     func testEveryPDFPetalWorks() async throws {

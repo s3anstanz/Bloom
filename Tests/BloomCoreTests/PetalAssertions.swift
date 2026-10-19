@@ -1,7 +1,5 @@
-import AVFoundation
 import BloomCore
-import ImageIO
-import PDFKit
+import BloomFixtures
 import XCTest
 
 /// Runs every Convert and Tools petal offered for `files` and fails for any petal whose result is missing or won't open.
@@ -41,31 +39,4 @@ func assertEveryPetalWorks(for files: [URL], file: StaticString = #filePath, lin
             }
         }
     }
-}
-
-/// Why an output is unusable, or nil when it exists, has content and opens as its type.
-func defect(in url: URL) async -> String? {
-    let name = url.lastPathComponent
-    var isFolder: ObjCBool = false
-    guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isFolder) else { return "\(name) is missing" }
-    if isFolder.boolValue {
-        let contents = (try? FileManager.default.contentsOfDirectory(atPath: url.path)) ?? []
-        return contents.isEmpty ? "\(name) is an empty folder" : nil
-    }
-    let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-    guard size > 0 else { return "\(name) is empty" }
-    switch FileKind(url) {
-    case .image:
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil), CGImageSourceGetCount(source) > 0 else {
-            return "\(name) can't be opened as an image"
-        }
-    case .pdf:
-        guard (PDFDocument(url: url)?.pageCount ?? 0) > 0 else { return "\(name) can't be opened as a PDF" }
-    case .video, .audio:
-        let seconds = (try? await AVURLAsset(url: url).load(.duration).seconds) ?? 0
-        guard seconds > 0 else { return "\(name) has no playable length" }
-    default:
-        break
-    }
-    return nil
 }

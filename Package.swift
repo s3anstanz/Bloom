@@ -8,7 +8,8 @@ let package = Package(
         .target(name: "BloomCore"),
         .executableTarget(name: "Bloom", dependencies: ["BloomCore"]),
         .executableTarget(name: "BloomRender", dependencies: ["BloomCore"]),
-        .executableTarget(name: "BloomE2E", dependencies: ["BloomCore"]),
-        .testTarget(name: "BloomCoreTests", dependencies: ["BloomCore"]),
+        .target(name: "BloomFixtures", dependencies: ["BloomCore"]),
+        .executableTarget(name: "BloomE2E", dependencies: ["BloomCore", "BloomFixtures"]),
+        .testTarget(name: "BloomCoreTests", dependencies: ["BloomCore", "BloomFixtures"]),
     ]
 )

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Puts a run's GIFs and PNGs on the previews branch, where pull requests and Claude can show them, then
 #   preview: posts <folder>/preview.md as a comment on the pull request, editing the earlier one;
-#   e2e: adds <folder>/summary.md to the job summary.
-# Usage: .github/scripts/publish-images.sh preview|e2e <folder>
+#   e2e-<runner>: adds <folder>/summary.md to the job summary.
+# Usage: .github/scripts/publish-images.sh preview|e2e-<runner> <folder>
 # Needs GH_TOKEN, GITHUB_REPOSITORY and HEAD_SHA in the environment, and PR_NUMBER on pull requests;
 # without it the images go under main/.
 set -euo pipefail
@@ -48,8 +48,9 @@ prepare() {
 # Previews
 
 Images for open pull requests, one folder each, and for the latest run on `main`: `preview` holds the flower GIFs
-from the Preview workflow (`.github/workflows/preview.yml`) and `e2e` the screenshots from the end-to-end journeys
-(`.github/workflows/e2e.yml`). Every run replaces this branch with a single commit, so cloning Bloom stays small.
+from the Preview workflow (`.github/workflows/preview.yml`) and `e2e-<runner>` the screenshots from the end-to-end
+journeys on each macOS runner (`.github/workflows/e2e.yml`). Every run replaces this branch with a single commit, so
+cloning Bloom stays small.
 EOF
   git -C "$WORK" add -A
   COMMIT="$(git -C "$WORK" commit-tree "$(git -C "$WORK" write-tree)" -m "Images for open pull requests")"
@@ -95,7 +96,7 @@ case "$KIND" in
       gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F "body=@$BODY" >/dev/null
     fi
     ;;
-  e2e)
+  e2e-*)
     if [ -f "$SOURCE/summary.md" ]; then
       absolute "$SOURCE/summary.md" >>"$GITHUB_STEP_SUMMARY"
     fi
