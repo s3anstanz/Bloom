@@ -84,14 +84,13 @@ public enum CompressionLevel: CaseIterable {
         min(Int((try? AVAudioFile(forReading: file).fileFormat.channelCount) ?? 2), 2)
     }
 
-    /// Compressed images stay PNG when any of them shows through, which JPEG would fill with white. A copy at most
-    /// 256 px across is enough to tell: shrinking blends a see-through pixel into its neighbours rather than losing it.
+    /// Compressed images stay PNG when any pixel shows through, which JPEG would fill with white. Only images whose
+    /// header says they have an alpha channel are read, at full size so a single see-through pixel counts.
     static func isTransparent(_ file: URL) -> Bool {
-        let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: 256]
         guard let source = CGImageSourceCreateWithURL(file as CFURL, nil),
             let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
             properties[kCGImagePropertyHasAlpha] as? Bool == true,
-            let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
         else { return false }
         guard
             let context = CGContext(

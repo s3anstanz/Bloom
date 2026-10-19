@@ -133,6 +133,14 @@ final class CatalogTests: XCTestCase {
         XCTAssertEqual(both?.detail, "Compress at the Balanced size")
     }
 
+    func testOneClearPixelInAHugePictureKeepsItPNG() async throws {
+        let folder = try Fixtures.makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let picture = try Fixtures.image(in: folder, transparent: false, width: 8000, height: 500, clearPixel: true)
+        let item = await WheelCatalog.items(for: [picture], mode: .tools).first { $0.title == "Compress" }
+        XCTAssertEqual(item?.detail, "Compress to PNG, up to 2400 px")
+    }
+
     func testCompressSizesForVideoAndAudio() async throws {
         let found = await compress(["clip.mov"])
         let video = try XCTUnwrap(found)
