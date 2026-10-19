@@ -2,7 +2,7 @@
 
 **Do things to a file without opening anything.**
 
-Drag a file, tap a key, and a flower of options blooms around your cursor. Drop the file on a petal and it's done: converted, shrunk, rotated, zipped or AirDropped. The result lands right next to the original.
+Drag a file, tap a key, and a flower of options blooms around your cursor. Drop the file on a petal and it's done: converted, shrunk, rotated, zipped or AirDropped. The result is saved in the same folder as the original.
 
 <p align="center"><img src="docs/images/bloom.gif" width="340" alt="Bloom's flower opening around the cursor"></p>
 
@@ -12,7 +12,7 @@ No app to launch, no Export dialog, no website to upload to. Bloom lives in your
 
 1. **Drag** a file from Finder, the Desktop or anywhere else you can drag one.
 2. **Tap a key** while you're still dragging. A flower opens under your cursor.
-3. **Drop it on a petal.** A ✓ and a pop, and the result sits next to the original.
+3. **Drop it on a petal.** A ✓ and a pop, and the result is saved in the same folder as the original.
 
 <p align="center">
   <img src="docs/images/convert.png" width="260" alt="Dragging photo.jpg onto the PNG petal of the Convert flower">
@@ -47,7 +47,7 @@ Changed your mind mid-drag? Tap another key, or slide over the **⇧ Convert**, 
 - Unpack a **.tar.gz**: ⌘, then Extract.
 - Keep a file **floating on screen** to drag into an email later: ⌃, then Float.
 
-Your original is never touched. Results get Finder-style names: `photo.jpg` becomes `photo.png` beside it, or `photo 2.png` if that name is taken.
+Your original is never touched. Results get Finder-style names: `photo.jpg` becomes `photo.png` in the same folder, or `photo 2.png` if that name is taken.
 
 ## Install
 
@@ -139,7 +139,7 @@ GitHub Actions tests every pull request on real Macs, choosing the tests from th
 
 ## Privacy and security
 
-Bloom reads the files you drop on it and writes results beside them. It has no network code, no analytics and no third-party dependencies, and CI fails if networking code appears in BloomCore. Feedback goes through your browser, only when you submit it. Bloom notes what happens to each drag (the flower opening, a drop arriving or being refused) in your Mac's own log, never a file's name or folder; search Console for `com.westfalllabs.bloom` to read it. To report a security problem, see [SECURITY.md](SECURITY.md).
+Bloom reads the files you drop on it and writes results to the same folder. It has no network code, no analytics and no third-party dependencies, and CI fails if networking code appears in BloomCore. Feedback goes through your browser, only when you submit it. Bloom notes what happens to each drag (the flower opening, a drop arriving or being refused) in your Mac's own log, never a file's name or folder; search Console for `com.westfalllabs.bloom` to read it. To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## License
 

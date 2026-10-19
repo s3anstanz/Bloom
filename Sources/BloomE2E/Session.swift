@@ -59,6 +59,8 @@ final class Session {
     private var destinationWindow: URL?
     /// Set when a key had to be tapped twice before the flower opened.
     private(set) var tappedTwice = false
+    /// Set when Finder didn't start the first drag, so the files were picked up again.
+    private(set) var pickedUpTwice = false
 
     init(journey: String, output: URL) {
         name = journey
@@ -189,6 +191,7 @@ final class Session {
     func pickUp(_ fileNames: [String]) async throws {
         guard let first = fileNames.first else { throw Failure("Nothing to pick up.") }
         tappedTwice = false
+        pickedUpTwice = false
         if fileNames.count > 1 {
             try select(fileNames)
             try await Self.pause(0.5)
@@ -196,6 +199,19 @@ final class Session {
         let icon = try await iconCenter(first)
         pickup = icon
         log("picking up \(fileNames.joined(separator: ", ")) at \(Int(icon.x)), \(Int(icon.y))")
+        if try await drag(from: icon) { return }
+        // Finder writes the drag pasteboard as a drag begins. Without that, Finder never started one, which says
+        // nothing about Bloom, so the files are picked up again and `pickedUpTwice` records it.
+        log("Finder didn't start a drag, so picking up again")
+        pickedUpTwice = true
+        try await cancelDrag()
+        try await Self.pause(1)
+        guard try await drag(from: icon) else { throw Failure("Finder didn't start a drag of \(first), twice.") }
+    }
+
+    /// Presses on `icon` and drags to where the flower will open, and says whether Finder began a drag.
+    private func drag(from icon: CGPoint) async throws -> Bool {
+        let before = NSPasteboard(name: .drag).changeCount
         post(.mouseMoved, at: icon)
         try await Self.pause(0.3)
         post(.leftMouseDown, at: icon)
@@ -204,6 +220,7 @@ final class Session {
         try await move(to: CGPoint(x: icon.x + 12, y: icon.y + 12), steps: 6)
         try await move(to: Self.openingPoint, steps: 40)
         try await Self.pause(0.3)
+        return NSPasteboard(name: .drag).changeCount != before
     }
 
     /// Where Finder shows the window for `folder`, through the Accessibility API.

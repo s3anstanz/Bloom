@@ -54,6 +54,8 @@ final class RadialController {
     private var presentation = 0
     /// The mouse button came up before the drop arrived, so the flower began folding first.
     private var foldedBeforeDrop = false
+    /// The drag behind the flower is over: its drop arrived, or it left the flower after the button came up.
+    private var dragSessionOver = false
     private var motionRun = 0
     private lazy var panel: NSPanel = makePanel()
 
@@ -64,6 +66,7 @@ final class RadialController {
         if !isNewDrag, model.mode == mode, files == self.files { return }
         if isNewDrag {
             foldedBeforeDrop = false
+            dragSessionOver = false
             tabTask?.cancel()
             model.hoveredTab = nil
         }
@@ -112,7 +115,32 @@ final class RadialController {
         dragLog.notice("Drag ended before a drop; folding the flower")
         model.timeline.closed = Self.now
         animate()
-        dismiss(after: FlowerMotion.closeDuration)
+        waitForLateDrop()
+    }
+
+    /// AppKit can deliver the drop well after the mouse button comes up, sometimes after the flower has folded away. Its
+    /// window stays, with nothing left to see, to catch that drop until the drag is over, or for a few seconds if AppKit
+    /// never says so.
+    private func waitForLateDrop() {
+        hideTask?.cancel()
+        tabTask?.cancel()
+        hideTask = Task { @MainActor in
+            let deadline = Self.now + FlowerMotion.closeDuration + 3
+            try? await Task.sleep(nanoseconds: UInt64(FlowerMotion.closeDuration * 1_000_000_000))
+            while !self.dragSessionOver, Self.now < deadline, !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+            guard !Task.isCancelled else { return }
+            self.dismiss(after: 0)
+        }
+    }
+
+    /// Called by the drop target when the drag ends or leaves it. Only counts once the button is up, since a drag can
+    /// leave the flower and come back while it's still down.
+    func dragSessionEnded() {
+        guard model.timeline.closed != nil, !dragSessionOver else { return }
+        dragSessionOver = true
+        dragLog.notice("Drag session over")
     }
 
     /// `offset` is the cursor position relative to the flower's center, y pointing up.
@@ -412,6 +440,11 @@ final class DropTargetView: NSView {
     override func draggingExited(_ sender: NSDraggingInfo?) {
         dragLog.notice("Drag left the flower")
         controller?.hover(nil)
+        controller?.dragSessionEnded()
+    }
+
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        controller?.dragSessionEnded()
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
