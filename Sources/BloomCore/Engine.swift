@@ -34,6 +34,8 @@ public enum Engine {
 
     public static func apply(_ tool: Tool, to files: [URL]) async throws -> [URL] {
         switch tool {
+        case .compress:
+            return try await compress(files, level: .balanced)
         case .mergePDF:
             return [try mergePDF(files)]
         case .zip:
@@ -50,6 +52,27 @@ public enum Engine {
             }
             return outputs
         }
+    }
+
+    /// Compresses each file at `level` beside the original. A result that isn't smaller than its original is thrown
+    /// away, and when none is smaller nothing is saved.
+    public static func compress(_ files: [URL], level: CompressionLevel) async throws -> [URL] {
+        var outputs: [URL] = []
+        for file in files {
+            do {
+                let output = try await compressOne(file, kind: FileKind(file), level: level)
+                if fileSize(output) < fileSize(file) {
+                    outputs.append(output)
+                } else {
+                    discard([output])
+                }
+            } catch {
+                discard(outputs)
+                throw ConversionError("\(file.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        guard !outputs.isEmpty else { throw AlreadySmall(level: level, files: files.count) }
+        return outputs
     }
 
     public static func canWriteImage(_ format: Format) -> Bool {
@@ -315,7 +338,7 @@ public enum Engine {
         let kind = FileKind(file)
         switch tool {
         case .compress:
-            return try await compress(file, kind: kind)
+            return try await compressOne(file, kind: kind, level: .balanced)
         case .halfSize:
             return try editImage(file, suffix: " (50%)", scale: 0.5) { $0 }
         case .rotate:
@@ -341,52 +364,38 @@ public enum Engine {
         }
     }
 
-    private static func compress(_ file: URL, kind: FileKind) async throws -> URL {
-        let level = CompressionSetting.level
+    private static func compressOne(_ file: URL, kind: FileKind, level: CompressionLevel) async throws -> URL {
         switch kind {
         case .video:
-            let preset: String
-            switch level {
-            case 75: preset = AVAssetExportPreset1920x1080
-            case 25: preset = AVAssetExportPreset960x540
-            default: preset = AVAssetExportPreset1280x720
-            }
-            return try await export(AVURLAsset(url: file), from: file, presets: [preset], as: .mp4, ext: "mp4", suffix: " (compressed)")
+            let asset = AVURLAsset(url: file)
+            return try await export(asset, from: file, presets: [level.videoPreset], as: .mp4, ext: "mp4", suffix: " (compressed)")
         case .audio:
-            let perChannel: Int
-            switch level {
-            case 75: perChannel = 96_000
-            case 25: perChannel = 32_000
-            default: perChannel = 64_000
-            }
-            let channels = min(Int((try? AVAudioFile(forReading: file).fileFormat.channelCount) ?? 2), 2)
             let output = outputURL(for: file, ext: "m4a", suffix: " (compressed)")
             let aac = ["-f", "m4af", "-d", "aac"]
-            do {
-                try await shell("/usr/bin/afconvert", aac + ["-b", String(perChannel * channels), file.path, output.path])
-            } catch {
-                // Apple's AAC encoder only accepts certain bitrates for each sample rate and channel count
-                // (it rejects them with '!dat'); its default bitrate always works.
-                discard([output])
+            // Apple's AAC encoder only accepts certain bitrates for each sample rate and channel count (it rejects the
+            // rest with '!dat'). Stepping down to the next one it takes keeps each size at or below what it promises.
+            let requested = level.audioBitratePerChannel * CompressionLevel.channels(of: file)
+            for bitrate in [requested] + CompressionLevel.aacBitrates.filter({ $0 < requested }) {
                 do {
-                    try await shell("/usr/bin/afconvert", aac + [file.path, output.path])
+                    try await shell("/usr/bin/afconvert", aac + ["-b", String(bitrate), file.path, output.path])
+                    return output
                 } catch {
                     discard([output])
-                    throw error
                 }
+            }
+            // Its default bitrate always works.
+            do {
+                try await shell("/usr/bin/afconvert", aac + [file.path, output.path])
+            } catch {
+                discard([output])
+                throw error
             }
             return output
         case .pdf:
             return try compressPDF(file)
         default:
-            let maxPixelSize: Int
-            switch level {
-            case 75: maxPixelSize = 3200
-            case 25: maxPixelSize = 1600
-            default: maxPixelSize = 2400
-            }
             let output = outputURL(for: file, ext: "jpg", suffix: " (compressed)")
-            try writeImage(loadImage(file, maxPixelSize: maxPixelSize), to: output, type: .jpeg, quality: Double(level) / 100)
+            try writeImage(loadImage(file, maxPixelSize: level.maxPixelSize), to: output, type: .jpeg, quality: level.jpegQuality)
             return output
         }
     }
@@ -727,6 +736,10 @@ public enum Engine {
     }
 
     // MARK: Files
+
+    private static func fileSize(_ url: URL) -> Int {
+        (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+    }
 
     /// Deletes results Bloom created, so a failure never leaves a partial result beside the user's files.
     private static func discard(_ outputs: [URL]) {

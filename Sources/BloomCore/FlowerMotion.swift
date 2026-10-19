@@ -15,8 +15,12 @@ public struct FlowerTimeline: Equatable {
     public var glassOpened: TimeInterval
     /// When the petals arrived; checking a video for sound can hold them back a moment.
     public var petalsShown: TimeInterval
+    /// When the petal under the pointer opened its choices, like Compress's sizes.
+    public var choicesOpened: TimeInterval?
     public var dropped: TimeInterval?
     public var chosen = 0
+    /// The choice the file was dropped on, when it landed on one rather than on the petal itself.
+    public var chosenChoice: Int?
     public private(set) var finished: TimeInterval?
     public private(set) var succeeded = false
     /// When the drag ended without a drop on a petal.
@@ -77,9 +81,12 @@ public struct FlowerFrame: Equatable {
     public internal(set) var tabsOpacity = 1.0
     public internal(set) var tabsOffset = 0.0
     public internal(set) var petals: [Petal]
+    /// The open petal's choices, which bloom past its tip.
+    public internal(set) var choices: [Petal]
 
-    init(petals: Int) {
+    init(petals: Int, choices: Int) {
         self.petals = Array(repeating: Petal(), count: max(petals, 0))
+        self.choices = Array(repeating: Petal(), count: max(choices, 0))
     }
 }
 
@@ -91,8 +98,14 @@ public enum FlowerMotion {
     /// How long letting go takes to fold the flower away.
     public static let closeDuration = 0.4
 
-    public static func frame(_ timeline: FlowerTimeline, at now: TimeInterval, petals: Int, reduceMotion: Bool) -> FlowerFrame {
-        var frame = FlowerFrame(petals: petals)
+    public static func frame(
+        _ timeline: FlowerTimeline,
+        at now: TimeInterval,
+        petals: Int,
+        choices: Int = 0,
+        reduceMotion: Bool
+    ) -> FlowerFrame {
+        var frame = FlowerFrame(petals: petals, choices: choices)
         openGlass(&frame, motion(now - timeline.glassOpened, pace: showPace), reduceMotion: reduceMotion)
         let elapsed = motion(now - timeline.opened, pace: showPace)
         let lag = motion(timeline.petalsShown - timeline.opened, pace: showPace)
@@ -100,8 +113,17 @@ public enum FlowerMotion {
         case .bloom: unfurl(&frame, elapsed, lag: lag, reduceMotion: reduceMotion)
         case .turn: turn(&frame, elapsed, lag: lag, reduceMotion: reduceMotion)
         }
+        if let opened = timeline.choicesOpened {
+            openChoices(&frame, motion(now - opened, pace: 1), reduceMotion: reduceMotion)
+        } else {
+            for index in frame.choices.indices {
+                frame.choices[index].opacity = 0
+                frame.choices[index].labelOpacity = 0
+            }
+        }
         if let dropped = timeline.dropped {
-            work(&frame, motion(now - dropped, pace: showPace), chosen: timeline.chosen, reduceMotion: reduceMotion)
+            let ms = motion(now - dropped, pace: showPace)
+            work(&frame, ms, chosen: timeline.chosen, choice: timeline.chosenChoice, reduceMotion: reduceMotion)
         }
         if let finished = timeline.finished {
             if timeline.succeeded {
@@ -117,7 +139,7 @@ public enum FlowerMotion {
     }
 
     /// The time after which `frame` stops changing, apart from the spinner turning while Bloom works.
-    public static func endTime(of timeline: FlowerTimeline, petals: Int) -> TimeInterval {
+    public static func endTime(of timeline: FlowerTimeline, petals: Int, choices: Int = 0) -> TimeInterval {
         let last = Double(max(petals - 1, 0))
         let lag = motion(timeline.petalsShown - timeline.opened, pace: showPace)
         let entrance: Double
@@ -126,6 +148,9 @@ public enum FlowerMotion {
         case .turn: entrance = max(0, lag) + last * 16 + 600
         }
         var end = max(timeline.opened + seconds(entrance, pace: showPace), timeline.glassOpened + seconds(700, pace: showPace))
+        if let opened = timeline.choicesOpened {
+            end = max(end, opened + seconds(Double(max(choices - 1, 0)) * 40 + 600, pace: 1))
+        }
         if let dropped = timeline.dropped {
             end = max(end, dropped + seconds(400, pace: showPace))
         }
@@ -202,8 +227,28 @@ public enum FlowerMotion {
         }
     }
 
-    /// After a drop: the chosen petal stays lit and pulses, the others step back, and the spinner replaces the file.
-    private static func work(_ frame: inout FlowerFrame, _ ms: Double, chosen: Int, reduceMotion: Bool) {
+    /// A petal's choices spring out past its tip, one after another from the left.
+    private static func openChoices(_ frame: inout FlowerFrame, _ ms: Double, reduceMotion: Bool) {
+        for index in frame.choices.indices {
+            if reduceMotion {
+                frame.choices[index].opacity = clamp(ms / 150)
+                frame.choices[index].labelOpacity = clamp(ms / 150)
+                continue
+            }
+            let local = ms - Double(index) * 40
+            let settle = spring(local, response: 0.32, damping: 0.7)
+            frame.choices[index].scale = lerp(0.3, 1, settle)
+            frame.choices[index].opacity = easeOut(clamp(local / 90))
+            frame.choices[index].light = 0.6 * bump((local - 40) / 260)
+            let label = easeOut(clamp((local - 100) / 120))
+            frame.choices[index].labelOpacity = label
+            frame.choices[index].labelInset = 6 * (1 - label)
+        }
+    }
+
+    /// After a drop: the chosen petal (and choice) stays lit and pulses, the others step back, and the spinner
+    /// replaces the file.
+    private static func work(_ frame: inout FlowerFrame, _ ms: Double, chosen: Int, choice: Int?, reduceMotion: Bool) {
         let count = frame.petals.count
         for index in frame.petals.indices {
             if index == chosen {
@@ -216,6 +261,15 @@ public enum FlowerMotion {
             frame.petals[index].opacity *= lerp(1, 0.28, back)
             frame.petals[index].labelOpacity *= lerp(1, 0.4, back)
             if !reduceMotion { frame.petals[index].scale *= lerp(1, 0.94, back) }
+        }
+        for index in frame.choices.indices {
+            if index == choice {
+                frame.choices[index].light = 1
+                continue
+            }
+            let away = reduceMotion ? clamp(ms / 150) : easeOut(clamp(ms / 220))
+            frame.choices[index].opacity *= 1 - away
+            frame.choices[index].labelOpacity *= 1 - away
         }
         frame.fileOpacity = 1 - easeOut(clamp((ms - 100) / 120))
         frame.spinnerOpacity = easeOut(clamp((ms - 180) / 120))
@@ -261,6 +315,10 @@ public enum FlowerMotion {
                 frame.petals[index].opacity *= fade
                 frame.petals[index].labelOpacity *= fade
             }
+            for index in frame.choices.indices {
+                frame.choices[index].opacity *= fade
+                frame.choices[index].labelOpacity *= fade
+            }
             return
         }
         let last = frame.petals.count - 1
@@ -270,6 +328,10 @@ public enum FlowerMotion {
             frame.petals[index].rotation += lerp(0, -35, fold)
             frame.petals[index].opacity *= 1 - clamp((fold - 0.2) / 0.8)
             frame.petals[index].labelOpacity *= 1 - clamp(ms / 80)
+        }
+        for index in frame.choices.indices {
+            frame.choices[index].opacity *= 1 - clamp(ms / 150)
+            frame.choices[index].labelOpacity *= 1 - clamp(ms / 80)
         }
         frame.pistilScale *= lerp(1, 0.4, easeIn(clamp((ms - 120) / 180)))
         frame.pistilOpacity *= 1 - clamp((ms - 160) / 140)

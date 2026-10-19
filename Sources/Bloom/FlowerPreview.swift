@@ -95,6 +95,8 @@ final class FlowerPreview {
             }
         }
 
+        try await chooseASize()
+
         try await drop(
             Moment(name: "saved", title: "Dropping on a petal"),
             succeeded: true,
@@ -114,6 +116,27 @@ final class FlowerPreview {
 
         try writeMenuBarIcon()
         try writeIndex()
+    }
+
+    /// The pointer rests on Compress until its sizes open, then points at each one.
+    private func chooseASize() async throws {
+        guard let compress = items[.tools]?.first, !compress.choices.isEmpty else {
+            throw Failure("The sample photo's Compress petal has no sizes.")
+        }
+        var sizes = Self.settled
+        sizes.choicesOpened = 0
+        try await film(Moment(name: "sizes", title: "Resting on Compress"), from: -0.2, until: 0.9) { now in
+            self.show(.tools, now < 0 ? Self.settled : sizes)
+            self.model.highlighted = 0
+            self.model.openChoices = now < 0 ? nil : 0
+        }
+        var stills: [Still] = []
+        for index in compress.choices.indices {
+            model.highlightedChoice = index
+            try await pause(0.4)
+            stills.append((try await capture(), "On \(compress.choices[index].title)"))
+        }
+        try save(Moment(name: "choose-size", title: "Pointing at sizes"), stills, delay: 0.8)
     }
 
     /// The pointer rests on the first petal, the file drops on it at 0 s and the result comes back at 0.9 s.
@@ -142,11 +165,13 @@ final class FlowerPreview {
         model.phase = .choosing
         model.status = nil
         model.highlighted = nil
+        model.openChoices = nil
+        model.highlightedChoice = nil
         model.timeline = timeline
     }
 
     private func endTime(_ timeline: FlowerTimeline, _ mode: Mode) -> TimeInterval {
-        FlowerMotion.endTime(of: timeline, petals: items[mode]?.count ?? 0)
+        FlowerMotion.endTime(of: timeline, petals: items[mode]?.count ?? 0, choices: items[mode]?.first?.choices.count ?? 0)
     }
 
     /// Steps the flower's clock frame by frame, letting `update` set the scene for each instant before it's captured.

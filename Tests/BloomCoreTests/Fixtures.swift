@@ -47,6 +47,40 @@ enum Fixtures {
         return url
     }
 
+    /// A JPEG full of small tiles in varied colours, detailed like a photo, saved at `quality`.
+    static func photo(in folder: URL, name: String = "photo.jpg", width: Int, height: Int, quality: Double) throws -> URL {
+        let url = folder.appendingPathComponent(name)
+        guard
+            let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            )
+        else { throw FixtureError("Couldn’t draw the sample photo.") }
+        // 5-pixel tiles straddle JPEG's 8 × 8 blocks, so no block is one flat colour that compresses to nothing.
+        let tile = 5
+        for row in 0..<(height + tile - 1) / tile {
+            for column in 0..<(width + tile - 1) / tile {
+                let seed = row * 7919 + column * 104_729
+                let red = CGFloat(seed % 251) / 250
+                let green = CGFloat(seed % 241) / 240
+                let blue = CGFloat(seed % 239) / 238
+                context.setFillColor(CGColor(red: red, green: green, blue: blue, alpha: 1))
+                context.fill(CGRect(x: column * tile, y: row * tile, width: tile, height: tile))
+            }
+        }
+        guard let image = context.makeImage(),
+            let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
+        else { throw FixtureError("Couldn’t save the sample photo.") }
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { throw FixtureError("Couldn’t save the sample photo.") }
+        return url
+    }
+
     static func textFile(in folder: URL, name: String, contents: String) throws -> URL {
         let url = folder.appendingPathComponent(name)
         try contents.write(to: url, atomically: true, encoding: .utf8)
@@ -85,13 +119,14 @@ enum Fixtures {
         return url
     }
 
-    /// A 440 Hz tone as 16-bit WAV.
+    /// A 440 Hz tone as 16-bit WAV, or white noise, which an encoder can't squeeze below the bitrate it's given.
     static func audio(
         in folder: URL,
         name: String = "tone.wav",
         sampleRate: Double = 44_100,
         channels: AVAudioChannelCount = 2,
-        seconds: Double = 1
+        seconds: Double = 1,
+        noise: Bool = false
     ) throws -> URL {
         let url = folder.appendingPathComponent(name)
         let settings: [String: Any] = [
@@ -111,8 +146,11 @@ enum Fixtures {
                 let samples = buffer.floatChannelData
             else { throw FixtureError("Couldn’t create the sample audio.") }
             buffer.frameLength = frames
+            var seed: UInt32 = 1
             for frame in 0..<Int(frames) {
-                let value = Float(sin(2 * Double.pi * 440 * Double(frame) / sampleRate) * 0.5)
+                seed = seed &* 1_664_525 &+ 1_013_904_223
+                let tone = Float(sin(2 * Double.pi * 440 * Double(frame) / sampleRate) * 0.5)
+                let value = noise ? Float(seed >> 8) / Float(1 << 24) - 0.5 : tone
                 for channel in 0..<Int(channels) {
                     samples[channel][frame] = value
                 }

@@ -27,6 +27,16 @@ struct PetalPalette {
             endRadius: RadialLayout.ringRadius
         )
     }
+
+    /// Choices sit beyond the glass, so their light runs from their bases to their tips.
+    func choiceFill(lit: Double) -> RadialGradient {
+        RadialGradient(
+            colors: [light.opacity(0.45 + 0.55 * lit), deep.opacity(0.4 + 0.6 * lit)],
+            center: .center,
+            startRadius: ChoiceLayout.innerRadius,
+            endRadius: ChoiceLayout.outerRadius
+        )
+    }
 }
 
 struct FlowerView: View {
@@ -44,13 +54,21 @@ struct FlowerView: View {
         TimelineView(.animation(paused: !model.isAnimating)) { context in
             // Once the motion has settled, draw its final frame rather than the last tick before it.
             let now = model.clock ?? (model.isAnimating ? context.date.timeIntervalSinceReferenceDate : .infinity)
-            content(FlowerMotion.frame(model.timeline, at: now, petals: model.items.count, reduceMotion: reduceMotion))
+            let frame = FlowerMotion.frame(
+                model.timeline,
+                at: now,
+                petals: model.items.count,
+                choices: openChoices.count,
+                reduceMotion: reduceMotion
+            )
+            content(frame)
         }
         .frame(width: RadialLayout.size.width, height: RadialLayout.size.height)
         .scaleEffect(model.isVisible ? 1 : 0.94, anchor: anchor)
         .opacity(model.isVisible ? 1 : 0)
         .animation(model.isVisible ? nil : .easeIn(duration: 0.25), value: model.isVisible)
         .animation(.easeOut(duration: 0.12), value: model.highlighted)
+        .animation(.easeOut(duration: 0.12), value: model.highlightedChoice)
         .animation(.easeOut(duration: 0.12), value: model.hoveredTab)
         .animation(.easeInOut(duration: 0.2), value: model.phase)
         .animation(.easeInOut(duration: 0.25), value: model.mode)
@@ -115,6 +133,22 @@ struct FlowerView: View {
                         isHighlighted: model.highlighted == index
                     )
                 }
+                if let parent = model.openChoices, !openChoices.isEmpty {
+                    let parentAngle = 2 * Double.pi * Double(parent) / Double(model.items.count)
+                    // Nearly invisible, but it keeps the pointer over the window on its way out to the choices.
+                    ChoiceBacking(angle: parentAngle, count: openChoices.count)
+                        .fill(Color.black.opacity(0.01))
+                    ForEach(Array(openChoices.enumerated()), id: \.element.id) { index, choice in
+                        ChoicePetalView(
+                            item: choice,
+                            angle: ChoiceLayout.angle(of: index, count: openChoices.count, around: parentAngle),
+                            parentAngle: parentAngle,
+                            palette: palette,
+                            motion: frame.choices.indices.contains(index) ? frame.choices[index] : FlowerFrame.Petal(),
+                            isHighlighted: model.highlightedChoice == index
+                        )
+                    }
+                }
             }
             .saturation(frame.saturation)
             Pistil(model: model, palette: palette, frame: frame)
@@ -125,13 +159,23 @@ struct FlowerView: View {
         guard model.phase == .choosing else { return model.status }
         guard model.timeline.closed == nil else { return nil }
         if let index = model.highlighted, model.items.indices.contains(index) {
-            return model.items[index].detail
+            let item = model.items[index]
+            if model.openChoices == index, let choice = model.highlightedChoice, item.choices.indices.contains(choice) {
+                return item.choices[choice].detail
+            }
+            return item.detail
         }
         if model.items.isEmpty {
             guard model.itemsLoaded else { return nil }
             return model.mode == .convert ? "No conversions for this file" : "No tools for this file"
         }
         return nil
+    }
+
+    /// The open petal's choices, like Compress's sizes.
+    private var openChoices: [WheelItem] {
+        guard let parent = model.openChoices, model.items.indices.contains(parent) else { return [] }
+        return model.items[parent].choices
     }
 
     /// Below the tabs while choosing; in their place once they hide for progress and the result.
@@ -221,6 +265,78 @@ private struct PetalView: View {
         .scaleEffect(motion.scale)
         .rotationEffect(.degrees(motion.rotation))
         .opacity(motion.opacity)
+    }
+}
+
+/// One of a petal's choices, past its tip. It grows out from the glass's edge where its petal points.
+private struct ChoicePetalView: View {
+    let item: WheelItem
+    let angle: Double
+    let parentAngle: Double
+    let palette: PetalPalette
+    let motion: FlowerFrame.Petal
+    let isHighlighted: Bool
+
+    var body: some View {
+        let petal = Petal(angle: angle, width: ChoiceLayout.width, inner: ChoiceLayout.innerRadius, outer: ChoiceLayout.outerRadius)
+        let lit = isHighlighted ? 1 : motion.light
+        let lift: CGFloat = isHighlighted ? 6 : 0
+        let labelRadius = (ChoiceLayout.innerRadius + ChoiceLayout.outerRadius) / 2 - CGFloat(motion.labelInset)
+        let growFrom = UnitPoint(x: 0.5 + 0.5 * sin(parentAngle), y: 0.5 - 0.5 * cos(parentAngle))
+        ZStack {
+            petal.fill(Color.black.opacity(0.6))
+            petal
+                .fill(palette.choiceFill(lit: lit))
+                .shadow(color: palette.deep.opacity(0.7 * lit), radius: 12)
+            petal
+                .stroke(Color.white.opacity(0.25 + 0.3 * lit), lineWidth: 1)
+            VStack(spacing: 1) {
+                Text(item.title)
+                    .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                if let badge = item.badge {
+                    Text(badge)
+                        .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                        .opacity(0.85)
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(width: 54)
+            .foregroundStyle(Color.white)
+            .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
+            .scaleEffect(isHighlighted ? 1.1 : 1)
+            .opacity(motion.labelOpacity)
+            .offset(x: labelRadius * CGFloat(sin(angle)), y: -labelRadius * CGFloat(cos(angle)))
+        }
+        .offset(x: lift * CGFloat(sin(angle)), y: -lift * CGFloat(cos(angle)))
+        .scaleEffect(motion.scale, anchor: growFrom)
+        .opacity(motion.opacity)
+    }
+}
+
+/// The band beyond the glass where a petal's choices sit, from the glass's edge out past their tips.
+private struct ChoiceBacking: Shape {
+    let angle: Double
+    let count: Int
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let reach = (Double(count) / 2 + 0.5) * ChoiceLayout.spread
+        let steps = 16
+        func point(_ radius: CGFloat, _ step: Int) -> CGPoint {
+            let at = angle - reach + 2 * reach * Double(step) / Double(steps)
+            return CGPoint(x: center.x + radius * CGFloat(sin(at)), y: center.y - radius * CGFloat(cos(at)))
+        }
+        var path = Path()
+        path.move(to: point(RadialLayout.ringRadius - 4, 0))
+        for step in 0...steps {
+            path.addLine(to: point(ChoiceLayout.outerRadius + 10, step))
+        }
+        for step in (0...steps).reversed() {
+            path.addLine(to: point(RadialLayout.ringRadius - 4, step))
+        }
+        path.closeSubpath()
+        return path
     }
 }
 

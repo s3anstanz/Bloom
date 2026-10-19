@@ -41,3 +41,28 @@ public enum PetalLayout {
         return path
     }
 }
+
+/// Choices that bloom past a petal's tip, like Compress's sizes: side by side, centered on the petal, beyond the glass.
+public enum ChoiceLayout {
+    /// Radians between neighbouring choices.
+    public static let spread = Double.pi / 6
+    public static let innerRadius: CGFloat = 156
+    public static let outerRadius: CGFloat = 222
+    public static let width: CGFloat = 58
+
+    /// Radians clockwise from 12 o'clock of choice `index` of `count`, around a petal pointing at `petalAngle`.
+    public static func angle(of index: Int, count: Int, around petalAngle: Double) -> Double {
+        petalAngle + (Double(index) - Double(count - 1) / 2) * spread
+    }
+
+    /// Which choice the cursor points at. `offset` is relative to the flower's center, with y pointing up (AppKit
+    /// coordinates). The choices answer from the glass's edge outward, so moving out from the petal never crosses a gap.
+    public static func index(at offset: CGPoint, count: Int, around petalAngle: Double, glassRadius: CGFloat) -> Int? {
+        let distance = hypot(offset.x, offset.y)
+        guard count > 0, distance > glassRadius, distance <= outerRadius + 8 else { return nil }
+        let relative = remainder(atan2(Double(offset.x), Double(offset.y)) - petalAngle, 2 * Double.pi)
+        let slot = (relative / spread + Double(count - 1) / 2).rounded()
+        guard slot >= 0, slot < Double(count) else { return nil }
+        return Int(slot)
+    }
+}

@@ -112,17 +112,6 @@ public enum Format: String, CaseIterable {
     }
 }
 
-/// The menu bar's "Compress To" choice, shared with the app through `UserDefaults`.
-public enum CompressionSetting {
-    public static let key = "compressionLevel"
-    public static let choices = [75, 50, 25]
-
-    public static var level: Int {
-        let stored = UserDefaults.standard.integer(forKey: key)
-        return choices.contains(stored) ? stored : 50
-    }
-}
-
 public enum Tool: CaseIterable {
     case compress, halfSize, rotate, flip, grayscale, removeBackground, stripMetadata
     case mute, splitPages, mergePDF, extract, zip
@@ -163,7 +152,7 @@ public enum Tool: CaseIterable {
 
     public var detail: String {
         switch self {
-        case .compress: return "Compress to about \(CompressionSetting.level)%"
+        case .compress: return "Make it smaller"
         case .halfSize: return "Resize to 50%"
         case .rotate: return "Rotate 90° clockwise"
         case .flip: return "Flip horizontally"
@@ -266,6 +255,7 @@ public struct WheelItem: Identifiable {
     public enum Operation {
         case convert(Format)
         case tool(Tool)
+        case compress(CompressionLevel)
         case action(QuickAction)
     }
 
@@ -274,6 +264,11 @@ public struct WheelItem: Identifiable {
     public let symbol: String
     public let detail: String
     public let progress: String
+    /// A second, shorter line under the title, like a size's "720p".
+    public internal(set) var badge: String?
+    /// Petals that bloom past this one's tip when the pointer rests on it, like Compress's sizes. Only the first petal
+    /// has them, so they open above the flower.
+    public internal(set) var choices: [WheelItem] = []
 
     public var id: String { title }
 }
@@ -298,20 +293,61 @@ public enum WheelCatalog {
                 )
             }
         case .tools:
+            let channels = kinds.allSatisfy { $0 == .audio } ? audioChannels(files) : nil
             return Tool.allCases
                 .filter { $0.applies(to: files, kinds: kinds) }
                 .map { tool -> WheelItem in
-                    let detail =
-                        tool == .compress && kinds.allSatisfy({ $0 == .pdf })
-                        ? "Shrink with macOS’s Reduce File Size filter"
-                        : tool.detail
+                    if tool == .compress { return compressItem(kinds: kinds, audioChannels: channels) }
                     return WheelItem(
-                        operation: .tool(tool), title: tool.title, symbol: tool.symbol, detail: detail, progress: tool.progress)
+                        operation: .tool(tool), title: tool.title, symbol: tool.symbol, detail: tool.detail, progress: tool.progress)
                 }
         case .actions:
             return QuickAction.allCases
                 .map { WheelItem(operation: .action($0), title: $0.title, symbol: $0.symbol, detail: $0.detail, progress: $0.progress) }
         }
+    }
+
+    /// Dropping on Compress makes the Balanced size, and resting on it opens all three, each captioned with what it makes
+    /// of these files. PDFs go through macOS's filter, which has one size.
+    private static func compressItem(kinds: [FileKind], audioChannels: Int?) -> WheelItem {
+        let tool = Tool.compress
+        func detail(_ level: CompressionLevel) -> String {
+            guard let result = level.result(for: kinds, audioChannels: audioChannels) else { return "Compress at the \(level.title) size" }
+            return "Compress to \(result.detail)"
+        }
+        guard !kinds.allSatisfy({ $0 == .pdf }) else {
+            return WheelItem(
+                operation: .compress(.balanced),
+                title: tool.title,
+                symbol: tool.symbol,
+                detail: "Shrink with macOS’s Reduce File Size filter",
+                progress: tool.progress
+            )
+        }
+        let sizes = CompressionLevel.allCases.map { level in
+            WheelItem(
+                operation: .compress(level),
+                title: level.title,
+                symbol: tool.symbol,
+                detail: detail(level),
+                progress: tool.progress,
+                badge: level.result(for: kinds, audioChannels: audioChannels)?.badge
+            )
+        }
+        return WheelItem(
+            operation: .compress(.balanced),
+            title: tool.title,
+            symbol: tool.symbol,
+            detail: detail(.balanced),
+            progress: tool.progress,
+            choices: sizes
+        )
+    }
+
+    /// The channel count every file compresses to, or nil when they differ.
+    private static func audioChannels(_ files: [URL]) -> Int? {
+        let counts = Set(files.map(CompressionLevel.channels))
+        return counts.count == 1 ? counts.first : nil
     }
 
     /// Videos without a soundtrack, such as most screen recordings, can't become M4A.
