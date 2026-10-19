@@ -311,7 +311,11 @@ final class FlowerPreview {
             rows.append("<tr>\(cells.joined())</tr>")
         }
         let stills = moments.map { "[\($0.title)](\($0.name).png)" }.joined(separator: " · ")
-        let text = "<table>\n\(rows.joined(separator: "\n"))\n</table>\n\nStills: \(stills)\n"
+        let motion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? "on" : "off"
+        let transparency = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency ? "on" : "off"
+        let settings = "Reduce Motion \(motion), Reduce Transparency \(transparency)"
+        print("Rendered with \(settings).")
+        let text = "<table>\n\(rows.joined(separator: "\n"))\n</table>\n\nStills: \(stills)\n\nRendered with \(settings).\n"
         try text.write(to: folder.appendingPathComponent("preview.md"), atomically: true, encoding: .utf8)
     }
 

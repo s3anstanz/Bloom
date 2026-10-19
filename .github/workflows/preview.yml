@@ -38,6 +38,14 @@ jobs:
       - name: Build Bloom.app
         run: scripts/bundle.sh release build/Bloom.app
 
+      - name: Turn off Reduce Motion and Reduce Transparency
+        run: |
+          for key in reduceMotion reduceTransparency; do
+            echo "$key was $(defaults read com.apple.universalaccess "$key" 2>&1 || true)"
+            defaults write com.apple.universalaccess "$key" -bool false
+            echo "$key is $(defaults read com.apple.universalaccess "$key")"
+          done
+
       - name: Render the flower
         run: |
           build/Bloom.app/Contents/MacOS/Bloom --preview "$RUNNER_TEMP/preview"
