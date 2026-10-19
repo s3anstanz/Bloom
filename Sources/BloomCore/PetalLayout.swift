@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Which petal the cursor points at. Petal 0 sits at 12 o'clock and the rest follow clockwise.
