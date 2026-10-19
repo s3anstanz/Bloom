@@ -61,7 +61,8 @@ enum Fixtures {
                 bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
             )
         else { throw FixtureError("Couldn’t draw the sample photo.") }
-        let tile = 8
+        // 5-pixel tiles straddle JPEG's 8 × 8 blocks, so no block is one flat colour that compresses to nothing.
+        let tile = 5
         for row in 0..<(height + tile - 1) / tile {
             for column in 0..<(width + tile - 1) / tile {
                 let seed = row * 7919 + column * 104_729
