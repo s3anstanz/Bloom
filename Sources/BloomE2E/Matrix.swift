@@ -44,6 +44,7 @@ enum Matrix {
         for mode in modes {
             for petal in await petals(for: files, mode: mode) {
                 print("▶︎ \(sample.name) · \(petal.label)")
+                let began = Date()
                 let shots = session.screenshots.count
                 var outcome: (Outcome.Verdict, String)
                 do {
@@ -69,7 +70,8 @@ enum Matrix {
                 print("\(outcome.0 == .failed ? "FAIL" : "PASS") \(sample.name) · \(petal.label): \(outcome.1)")
                 if outcome.0 == .failed || session.draggedTwice {
                     print("  Bloom's log:")
-                    Session.bloomLog().forEach { print("    \($0)") }
+                    // Everything since the row began, so a first drag that went unanswered shows whether Bloom saw its press.
+                    Session.bloomLog(seconds: Int(Date().timeIntervalSince(began)) + 2).forEach { print("    \($0)") }
                 }
                 let shot = session.screenshots.count > shots ? session.screenshots.last?.file : nil
                 var row = Outcome(
