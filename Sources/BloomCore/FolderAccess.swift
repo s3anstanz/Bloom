@@ -42,6 +42,16 @@ public enum FolderAccess {
         return URL(fileURLWithPath: (isFolder ? item : item.deletingLastPathComponent()).path, isDirectory: true)
     }
 
+    /// The files AirDrop still refuses after Bloom asked for their folders.
+    public struct Refusal: Equatable {
+        /// In folders the person said no to: Files & Folders can fix these.
+        public let inDeniedFolders: [URL]
+        /// Refused although Bloom may read their folder, for example because AirDrop itself is off.
+        public let otherwise: [URL]
+
+        public var isEmpty: Bool { inDeniedFolders.isEmpty && otherwise.isEmpty }
+    }
+
     /// Asks for the folders of the files AirDrop refused and returns the files it still refuses.
     /// `canShare` is AirDrop's own check. macOS applies an Allow a moment after the prompt closes, so files in
     /// allowed folders are checked up to `attempts` times, `pause` nanoseconds apart; files in denied folders aren't waited on.
@@ -52,7 +62,7 @@ public enum FolderAccess {
         request: (URL) async -> Bool = { await FolderAccess.request($0) },
         attempts: Int = 20,
         pause: UInt64 = 100_000_000
-    ) async -> [URL] {
+    ) async -> Refusal {
         var targets: [URL] = []
         for target in refused.map(requestTarget) where !targets.contains(target) {
             targets.append(target)
@@ -68,7 +78,8 @@ public enum FolderAccess {
             guard waiting, attempt < attempts else { break }
             try? await Task.sleep(nanoseconds: pause)
         }
-        return remaining
+        let isDenied = { (file: URL) in denied.contains(requestTarget(for: file)) }
+        return Refusal(inDeniedFolders: remaining.filter(isDenied), otherwise: remaining.filter { !isDenied($0) })
     }
 
     /// What to tell the person when macOS still refuses `files` after asking. Each fits the flower's two-line caption.

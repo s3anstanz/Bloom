@@ -77,9 +77,10 @@ final class FolderAccessTests: XCTestCase {
         let a = desktop.appendingPathComponent("a.pdf")
         let b = downloads.appendingPathComponent("b.pdf")
 
-        let refused = await FolderAccess.resolve([a, b], canShare: mac.canShare, request: mac.request, pause: 0)
+        let refusal = await FolderAccess.resolve([a, b], canShare: mac.canShare, request: mac.request, pause: 0)
 
-        XCTAssertEqual(refused, [b])
+        XCTAssertEqual(refusal.inDeniedFolders, [b])
+        XCTAssertEqual(refusal.otherwise, [])
         XCTAssertEqual(mac.asked, [desktop.path, downloads.path])
     }
 
@@ -88,10 +89,10 @@ final class FolderAccessTests: XCTestCase {
         let desktop = try folder(named: "Desktop")
         let mac = FakeMac(answers: [desktop.path: true], checksBeforeApplied: 3)
 
-        let refused = await FolderAccess.resolve(
+        let refusal = await FolderAccess.resolve(
             [desktop.appendingPathComponent("a.pdf")], canShare: mac.canShare, request: mac.request, pause: 0)
 
-        XCTAssertEqual(refused, [])
+        XCTAssertTrue(refusal.isEmpty)
     }
 
     @MainActor
@@ -100,21 +101,24 @@ final class FolderAccessTests: XCTestCase {
         let mac = FakeMac(answers: [desktop.path: false])
         let file = desktop.appendingPathComponent("a.pdf")
 
-        let refused = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, pause: 0)
+        let refusal = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, pause: 0)
 
-        XCTAssertEqual(refused, [file])
+        XCTAssertEqual(refusal.inDeniedFolders, [file])
+        XCTAssertEqual(refusal.otherwise, [])
         XCTAssertEqual(mac.checks, 1)
     }
 
     @MainActor
-    func testWaitingForAnAllowGivesUp() async throws {
+    func testAFileRefusedAlthoughItsFolderIsAllowedIsNotBlamedOnTheFolder() async throws {
+        // AirDrop itself being off looks like this: the folder is readable, and AirDrop still says no.
         let desktop = try folder(named: "Desktop")
         let mac = FakeMac(answers: [desktop.path: true], checksBeforeApplied: .max)
         let file = desktop.appendingPathComponent("a.pdf")
 
-        let refused = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, attempts: 5, pause: 0)
+        let refusal = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, attempts: 5, pause: 0)
 
-        XCTAssertEqual(refused, [file])
+        XCTAssertEqual(refusal.inDeniedFolders, [])
+        XCTAssertEqual(refusal.otherwise, [file])
         XCTAssertEqual(mac.checks, 5)
     }
 
