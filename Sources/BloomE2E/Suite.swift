@@ -91,7 +91,7 @@ final class Suite {
                 session.note = [session.note, "⚠️ The flower opened only on a second tap."].compactMap { $0 }.joined(separator: " ")
             }
             if session.pickedUpTwice {
-                session.note = [session.note, "⚠️ Finder started the drag only on a second try."].compactMap { $0 }.joined(separator: " ")
+                session.note = [session.note, "⚠️ Finder picked the files up on a second try."].compactMap { $0 }.joined(separator: " ")
             }
             if let note = session.note {
                 result += "<br>\(note)"
@@ -126,7 +126,7 @@ final class Suite {
             }
             var detail = outcome.detail.replacingOccurrences(of: "|", with: "\\|").replacingOccurrences(of: "\n", with: " ")
             if outcome.tappedTwice { detail += " ⚠️ the flower opened only on a second tap" }
-            if outcome.pickedUpTwice { detail += " ⚠️ Finder started the drag only on a second try" }
+            if outcome.pickedUpTwice { detail += " ⚠️ Finder picked the files up on a second try" }
             let shot = outcome.screenshot.map { "[screenshot](\($0))" } ?? ""
             return "| \(outcome.sample) | \(flower(outcome.mode)) | \(outcome.petal) | \(mark) \(detail) | \(shot) |"
         }

@@ -59,7 +59,7 @@ final class Session {
     private var destinationWindow: URL?
     /// Set when a key had to be tapped twice before the flower opened.
     private(set) var tappedTwice = false
-    /// Set when Finder didn't start the first drag, so the files were picked up again.
+    /// Set when Finder didn’t drag the files on the first try, so they were picked up again.
     private(set) var pickedUpTwice = false
 
     init(journey: String, output: URL) {
@@ -192,26 +192,31 @@ final class Session {
         guard let first = fileNames.first else { throw Failure("Nothing to pick up.") }
         tappedTwice = false
         pickedUpTwice = false
-        if fileNames.count > 1 {
-            try select(fileNames)
-            try await Self.pause(0.5)
+        for attempt in 1...2 {
+            if fileNames.count > 1 {
+                try select(fileNames)
+                try await Self.pause(0.5)
+            }
+            let icon = try await iconCenter(first)
+            pickup = icon
+            log("picking up \(fileNames.joined(separator: ", ")) at \(Int(icon.x)), \(Int(icon.y))")
+            if try await drag(from: icon, carrying: fileNames) { return }
+            guard attempt == 1 else { break }
+            // Finder writes the drag pasteboard as a drag begins. A drag it never began, or began with other files,
+            // says nothing about Bloom, so the files are picked up again and `pickedUpTwice` records it.
+            log("picking up again")
+            pickedUpTwice = true
+            try await cancelDrag()
+            try await Self.pause(1)
         }
-        let icon = try await iconCenter(first)
-        pickup = icon
-        log("picking up \(fileNames.joined(separator: ", ")) at \(Int(icon.x)), \(Int(icon.y))")
-        if try await drag(from: icon) { return }
-        // Finder writes the drag pasteboard as a drag begins. Without that, Finder never started one, which says
-        // nothing about Bloom, so the files are picked up again and `pickedUpTwice` records it.
-        log("Finder didn't start a drag, so picking up again")
-        pickedUpTwice = true
-        try await cancelDrag()
-        try await Self.pause(1)
-        guard try await drag(from: icon) else { throw Failure("Finder didn't start a drag of \(first), twice.") }
+        throw Failure("Finder didn't drag \(fileNames.joined(separator: ", ")), twice.")
     }
 
-    /// Presses on `icon` and drags to where the flower will open, and says whether Finder began a drag.
-    private func drag(from icon: CGPoint) async throws -> Bool {
-        let before = NSPasteboard(name: .drag).changeCount
+    /// Presses on `icon` and drags to where the flower will open, and says whether Finder began a drag of exactly
+    /// `fileNames`, logging what it did otherwise.
+    private func drag(from icon: CGPoint, carrying fileNames: [String]) async throws -> Bool {
+        let pasteboard = NSPasteboard(name: .drag)
+        let before = pasteboard.changeCount
         post(.mouseMoved, at: icon)
         try await Self.pause(0.3)
         post(.leftMouseDown, at: icon)
@@ -220,7 +225,17 @@ final class Session {
         try await move(to: CGPoint(x: icon.x + 12, y: icon.y + 12), steps: 6)
         try await move(to: Self.openingPoint, steps: 40)
         try await Self.pause(0.3)
-        return NSPasteboard(name: .drag).changeCount != before
+        guard pasteboard.changeCount != before else {
+            log("Finder didn't start a drag")
+            return false
+        }
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        let carried = urls.map(\.lastPathComponent)
+        guard Set(carried) == Set(fileNames), carried.count == fileNames.count else {
+            log("Finder dragged \(carried.isEmpty ? "no files" : carried.joined(separator: ", ")) instead")
+            return false
+        }
+        return true
     }
 
     /// Where Finder shows the window for `folder`, through the Accessibility API.

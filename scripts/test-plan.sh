@@ -62,7 +62,7 @@ classify() {
       echo "2 - the Actions petals" ;;
     Sources/Bloom/IssueLink.swift | Sources/BloomCore/IssueReport.swift)
       echo "1 - Report a Problem and Send Feedback" ;;
-    Sources/Bloom/* | Sources/BloomCore/KeyTaps.swift | Sources/BloomCore/FlowerTabs.swift)
+    Sources/Bloom/* | Sources/BloomCore/KeyTaps.swift | Sources/BloomCore/DragStart.swift | Sources/BloomCore/FlowerTabs.swift)
       echo "2 - drags, key taps and the flower" ;;
     Sources/BloomE2E/* | scripts/e2e.sh | .github/scripts/publish-images.sh)
       echo "2 - the end-to-end journeys" ;;
