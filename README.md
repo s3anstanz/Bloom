@@ -84,13 +84,15 @@ When several files are dragged together, the flower offers the conversions they 
 | Format the code | `scripts/format.sh` |
 | Check BloomCore stays offline | `scripts/check-no-network.sh` |
 | Render each moment of the flower as a GIF | `swift run Bloom --preview build/preview` |
+| Play the end-to-end journeys | `scripts/e2e.sh` |
 
 - `Sources/BloomCore`: everything about files: which petals a file gets, every conversion and tool, key taps and petal hit-testing.
 - `Sources/Bloom`: the menu-bar app, drag detection, the flower, Float cards and the Actions petals.
 - `Sources/BloomRender`: a helper bundled inside Bloom.app that renders documents to PDF, keeping the app responsive during long documents.
+- `Sources/BloomE2E`: end-to-end journeys that drag files out of Finder into the real app and check what it saves.
 - `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
 
-Every pull request is built and tested on a Mac by GitHub Actions, and the finished `Bloom.app` is attached to the run. Pull requests labelled `preview` also get a comment with a GIF of each moment of the flower. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Every pull request is built and tested on a Mac by GitHub Actions, the end-to-end journeys play on the real app, and the finished `Bloom.app` is attached to the run. Pull requests labelled `preview` also get a comment with a GIF of each moment of the flower. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy and security
 

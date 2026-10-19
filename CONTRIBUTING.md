@@ -11,6 +11,8 @@
 
 Add the `preview` label to a pull request that changes how the flower looks or moves. The Preview workflow then runs Bloom on a Mac runner and posts a **Flower preview** comment with each moment as a looping GIF and stills: the bloom, pointing at petals, switching flowers, a drop that saves, a drop that fails, and letting go. It refreshes the comment on every push while the label stays. To make the same files on your Mac, run `swift run Bloom --preview build/preview`; macOS asks once to let your terminal record the screen.
 
+The **E2E** workflow plays Bloom's end-to-end journeys on a Mac runner for every pull request. It drags files out of Finder with real mouse and key events, taps ⇧, ⌘ and ⌃, drops on petals and checks what Bloom saves, and the run's summary shows a screenshot of each step. To play them on your Mac, run `scripts/e2e.sh`. It quits any running Bloom, and your terminal needs Accessibility, Screen Recording and Automation access.
+
 ## Ground rules
 
 - **Local only.** `BloomCore` never uses the network; `scripts/check-no-network.sh` enforces it.
