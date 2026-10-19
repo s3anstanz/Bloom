@@ -5,7 +5,7 @@
 1. Branch from `main`.
 2. Make the change, with tests for anything new in `BloomCore`.
 3. Run `scripts/format.sh` and `swift test`.
-4. Open a pull request using the template. For anything that changes how Bloom looks or moves, include a screenshot or screen recording.
+4. Open a pull request using the template.
 5. CI must be green: formatting, the no-network check, a warnings-as-errors build, the tests, and CodeQL for the workflow files. CodeQL for Swift takes about ten minutes, so it runs on `main` after each merge and weekly; fix its findings in a follow-up pull request.
 6. The maintainer reviews and merges.
 

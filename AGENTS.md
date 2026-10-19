@@ -27,7 +27,6 @@ These instructions apply to every agent working in this repository, including Cl
 - New BloomCore behavior ships with tests that would fail if it broke. Assert results (files exist, open as their type, have the expected size or content), not implementation details.
 - Minimum macOS 13. Gate newer APIs with `#available` and hide the petal when unavailable.
 - Never modify the original file; write results beside it with Finder-style unique names.
-- UI changes include a screenshot or recording in the PR description.
 - Keep the README's petal tables in sync with what the code offers.
 
 ## Review guidelines
