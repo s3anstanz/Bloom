@@ -149,6 +149,44 @@ enum Journeys {
                 try await session.expectOnly(["photo.jpg"], after: 1)
             }
         },
+        Journey(name: "document-to-pdf", title: "⇧ A document becomes a PDF, printed by the helper inside Bloom.app") { session in
+            let notes = try Fixtures.rtf(in: session.folder)
+            let original = try Data(contentsOf: notes)
+            try await session.openInFinder()
+            try await session.pickUp("notes.rtf")
+            try await session.tap(.shift)
+            try await session.point(at: Format.pdf.title, in: .convert, files: [notes])
+            try await session.drop()
+            let pdf = try await session.expectFile("notes.pdf")
+            if let problem = await defect(in: pdf) { throw Failure(problem) }
+            try session.expectUnchanged(notes, from: original)
+        },
+        Journey(name: "two-files", title: "⌘ Merge PDF from a PDF and a photo dragged together") { session in
+            let pdf = try Fixtures.pdf(in: session.folder, pages: 2)
+            let photo = try session.image("photo.jpg")
+            try await session.openInFinder()
+            try await session.pickUp("document.pdf", "photo.jpg")
+            try await session.tap(.command)
+            try await session.point(at: Tool.mergePDF.title, in: .tools, files: [pdf, photo])
+            try await session.drop()
+            let merged = try await session.expectFile("Merged.pdf")
+            let pages = CGPDFDocument(merged as CFURL)?.numberOfPages ?? 0
+            guard pages == 3 else { throw Failure("Merged.pdf has \(pages) pages instead of the PDF's 2 and the photo's 1.") }
+        },
+        Journey(name: "back-to-back", title: "Ten drags in a row, each as the last flower closes, open the flower first time") { session in
+            // Drags that start right after a save are where Bloom has missed drags, so none is tapped or dragged again.
+            session.retriesMissedFlower = false
+            let photo = try session.image("photo.jpg")
+            try await session.openInFinder()
+            for round in 1...10 {
+                try await session.pickUp("photo.jpg")
+                try await session.tap(.shift)
+                try await session.point(at: Format.png.title, in: .convert, files: [photo])
+                try await session.drop()
+                _ = try await session.expectFile(round == 1 ? "photo.png" : "photo \(round).png")
+                try await session.expectFlowerClosed()
+            }
+        },
         Journey(name: "taken-name", title: "A name that's taken gets a number") { session in
             let photo = try session.image("photo.jpg")
             let taken = try session.image("photo.png", type: .png)

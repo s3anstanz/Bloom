@@ -44,6 +44,9 @@ final class Session {
     let folder: URL
     /// Off for the petal matrix, which keeps only the screenshot of how each drop went.
     var stepShots = true
+    /// When false, a flower that doesn't open on the first tap fails the journey instead of being tapped and dragged
+    /// again, for journeys that look for drags Bloom misses.
+    var retriesMissedFlower = true
     /// What a passing journey found worth saying, like an action this Mac can't do.
     var note: String?
     private(set) var screenshots: [(file: String, label: String)] = []
@@ -405,6 +408,7 @@ final class Session {
             try await waitForFlower(timeout: 3)
             return
         } catch {
+            guard retriesMissedFlower else { throw Failure("The flower didn’t open when \(key) was tapped during the drag.") }
             log("the flower didn't open, so tapping \(key) again")
             tappedTwice = true
         }

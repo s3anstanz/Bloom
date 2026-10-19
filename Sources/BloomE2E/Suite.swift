@@ -88,6 +88,10 @@ final class Suite {
                 Session.bloomLog(seconds: 60).forEach { print("    \($0)") }
                 await session.screenshotAfterFailure()
             }
+            if session.tappedTwice || session.draggedTwice {
+                print("  Bloom's log:")
+                Session.bloomLog(seconds: 60).forEach { print("    \($0)") }
+            }
             if session.tappedTwice {
                 session.note = [session.note, "⚠️ The flower opened only on a second tap."].compactMap { $0 }.joined(separator: " ")
             }
@@ -107,6 +111,7 @@ final class Suite {
             rows.append("<tr><td><b>\(journey.title)</b><br>\(result)<br><sub>\(labels)</sub></td><td>\(shots)</td></tr>")
         }
         let heading = "### End-to-end: \(journeys.count - failures) of \(journeys.count) journeys passed"
+        print(heading)
         return ("\(heading)\n\n<table>\n\(rows.joined(separator: "\n"))\n</table>\n", failures == 0)
     }
 
@@ -123,6 +128,7 @@ final class Suite {
         let redragged = outcomes.filter(\.draggedTwice).count
         if redragged > 0 { heading += " · ⚠️ \(redragged) needed a second drag" }
         heading += failed == 0 ? " · none failed" : " · **\(failed) failed**"
+        print(heading)
         let rows = outcomes.map { outcome -> String in
             let mark: String
             switch outcome.verdict {
