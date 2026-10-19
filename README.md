@@ -124,6 +124,7 @@ When an action can't work on your Mac, such as AirDrop while it's off, its petal
 | Format the code | `scripts/format.sh` |
 | Check BloomCore stays offline | `scripts/check-no-network.sh` |
 | Render each moment of the flower as a GIF | `swift run Bloom --preview build/preview` |
+| Run what CI will run for your changes | `scripts/check.sh` |
 | Play the end-to-end journeys | `scripts/e2e.sh` |
 | Drop a sample of every kind of file on every petal | `scripts/e2e.sh --matrix` |
 
@@ -134,7 +135,7 @@ When an action can't work on your Mac, such as AirDrop while it's off, its petal
 - `Sources/BloomFixtures`: generates the sample photos, PDFs, videos, audio, documents, subtitles and archives the tests and journeys use, and checks that a result opens as its type.
 - `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
 
-Every pull request is built and tested on macOS 15 and macOS 26 by GitHub Actions, the end-to-end journeys play on the real app, and the finished `Bloom.app` is attached to the run. Pull requests labelled `preview` also get a comment with a GIF of each moment of the flower. See [CONTRIBUTING.md](CONTRIBUTING.md).
+GitHub Actions tests every pull request on real Macs, choosing the tests from the files it touches: code is built and unit-tested on macOS 15 and macOS 26, changes to the app play the end-to-end journeys, and changes to how files are converted also play the petal matrix. The finished `Bloom.app` is attached to the run, and pull requests that change how the flower looks or moves get a comment with a GIF of each moment of it. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy and security
 

@@ -91,15 +91,17 @@ final class Session {
             post(.leftMouseUp, at: cursor)
             mouseIsDown = false
         }
-        for key in Key.allCases where held.contains(key.flag) {
-            held.remove(key.flag)
+        held = []
+        for key in Key.allCases {
             postFlags(key)
         }
         do {
-            if Self.focusedBloomWindow() != nil {
+            // The Move panel can have Go to Folder open on top of it, which takes an Escape of its own.
+            for _ in 0..<3 where Self.focusedBloomWindow() != nil {
                 try await type(key: 53)
+                try await Self.pause(0.5)
             }
-            for card in Self.bloomWindows(sized: Self.cardSize) {
+            for card in Self.floatCards() {
                 try await closeFloatCard(card)
             }
             try await Self.waitUntil("the flower to close", timeout: 8) { Self.flowerWindow() == nil }
@@ -350,13 +352,20 @@ final class Session {
         try await Self.pause(0.1)
     }
 
-    /// Presses and lets go of the key with `code`, like Return (36) or Escape (53), for whichever app is in front.
-    func type(key code: CGKeyCode, flags: CGEventFlags = []) async throws {
+    /// Presses and lets go of the key with `code`, like Return (36) or Escape (53), with `modifiers` held around it,
+    /// for whichever app is in front.
+    func type(key code: CGKeyCode, with modifiers: [Key] = []) async throws {
+        for key in modifiers {
+            try await press(key)
+        }
         for down in [true, false] {
             guard let event = CGEvent(keyboardEventSource: events, virtualKey: code, keyDown: down) else { continue }
-            event.flags = flags
+            event.flags = held
             event.post(tap: .cghidEventTap)
             try await Self.pause(0.05)
+        }
+        for key in modifiers.reversed() {
+            try await release(key)
         }
         try await Self.pause(0.2)
     }
@@ -368,6 +377,7 @@ final class Session {
                 guard let event = CGEvent(keyboardEventSource: events, virtualKey: 0, keyDown: down) else { continue }
                 var character = unit
                 event.keyboardSetUnicodeString(stringLength: 1, unicodeString: &character)
+                event.flags = []
                 event.post(tap: .cghidEventTap)
             }
             try await Self.pause(0.02)
@@ -566,7 +576,13 @@ final class Session {
     static func caption() -> String? {
         guard let bloom = NSRunningApplication.runningApplications(withBundleIdentifier: bloomID).first else { return nil }
         let app = AXUIElementCreateApplication(bloom.processIdentifier)
-        guard let caption = find(in: app, where: { string($0, kAXIdentifierAttribute) == "bloom.caption" }) else { return nil }
+        // Other windows, like the AirDrop sheet, can be large and slow to answer, so only the flower is searched.
+        AXUIElementSetMessagingTimeout(app, 0.5)
+        let flowers = elements(app, kAXWindowsAttribute).filter { frame($0)?.size == Layout.size }
+        guard let caption = flowers.lazy.compactMap({ window in
+            find(in: window, where: { string($0, kAXIdentifierAttribute) == "bloom.caption" })
+        }).first
+        else { return nil }
         return [kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute].lazy.compactMap { string(caption, $0) }.first {
             !$0.isEmpty
         }
@@ -588,10 +604,10 @@ final class Session {
         throw Failure("Bloom still said “\(progress)” after \(Int(timeout)) s.")
     }
 
-    /// Bloom's windows of `size` on screen, like Float's cards.
-    static func bloomWindows(sized size: CGSize) -> [CGRect] {
+    /// Bloom's windows on screen, or only those of `size`.
+    static func bloomWindows(sized size: CGSize? = nil) -> [CGRect] {
         guard let bloom = NSRunningApplication.runningApplications(withBundleIdentifier: bloomID).first else { return [] }
-        return windows(of: bloom.processIdentifier).filter { $0.size == size }
+        return windows(of: bloom.processIdentifier).filter { size == nil || $0.size == size }
     }
 
     private static func windows(of pid: pid_t) -> [CGRect] {
@@ -623,10 +639,11 @@ final class Session {
 
     /// Picks `folder` in the Move panel through Go to Folder, then presses Move Here.
     func chooseInMovePanel(_ folder: URL) async throws {
+        flower = nil
         try await Self.waitUntil("the Move panel", timeout: 5) { Self.focusedBloomWindow() != nil }
         try await Self.pause(0.8)
         try await screenshot("Move panel")
-        try await type(key: 5, flags: [.maskCommand, .maskShift])
+        try await type(key: 5, with: [.command, .shift])
         try await Self.pause(0.8)
         try await type(folder.path)
         try await type(key: 36)
@@ -677,7 +694,13 @@ final class Session {
 
     /// Waits for Float's card to appear and returns where it is.
     func expectFloatCard() async throws -> CGRect {
-        let card = try await Self.waitFor("Float's card", timeout: 5) { Self.bloomWindows(sized: Self.cardSize).first }
+        let card: CGRect
+        do {
+            card = try await Self.waitFor("Float's card", timeout: 5) { Self.floatCards().first }
+        } catch {
+            let found = Self.bloomWindows().map { "\(Int($0.minX)),\(Int($0.minY)) \(Int($0.width))×\(Int($0.height))" }
+            throw Failure("Float's card didn’t appear. Bloom's windows: \(found.joined(separator: "; ")).")
+        }
         try await Self.pause(0.5)
         flower = card.insetBy(dx: -60, dy: -60)
         try await screenshot("Float card", step: false)
@@ -687,11 +710,13 @@ final class Session {
 
     func closeFloatCard(_ card: CGRect) async throws {
         try await click(at: CGPoint(x: card.minX + 17, y: card.minY + 17))
-        try await Self.waitUntil("Float's card to close", timeout: 3) { Self.bloomWindows(sized: Self.cardSize).isEmpty }
+        try await Self.waitUntil("Float's card to close", timeout: 3) { !Self.floatCards().contains(card) }
     }
 
-    /// `FloatCardView.size` in the app.
-    static let cardSize = CGSize(width: 132, height: 140)
+    /// Float's cards: Bloom's windows about the size of `FloatCardView.size` in the app, below the menu bar.
+    static func floatCards() -> [CGRect] {
+        bloomWindows().filter { abs($0.width - 132) <= 8 && abs($0.height - 140) <= 8 && $0.minY > 40 }
+    }
 
     // MARK: Screenshots
 
@@ -711,6 +736,12 @@ final class Session {
         process.waitUntilExit()
         guard process.terminationStatus == 0 else { throw Failure("Couldn’t capture the screen for “\(label)”.") }
         screenshots.append((file, label))
+    }
+
+    /// Saves the whole screen, for windows the flower doesn't hold, like the AirDrop sheet.
+    func screenshotOfScreen(_ label: String) async throws {
+        flower = nil
+        try await screenshot(label, step: false)
     }
 
     /// Saves the whole screen so a failure shows what was in the way.

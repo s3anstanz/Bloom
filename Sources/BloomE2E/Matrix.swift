@@ -179,6 +179,7 @@ enum Matrix {
             let said = try await session.result(after: action.progress, detail: action.detail)
             guard said == "AirDrop opened" else { return (.failed, said ?? "AirDrop didn’t open.") }
             try await Session.pause(1)
+            try await session.screenshotOfScreen("AirDrop")
             try await session.type(key: 53)
             return (.worked, "AirDrop opened")
         case .float:

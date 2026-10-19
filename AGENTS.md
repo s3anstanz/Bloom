@@ -7,12 +7,17 @@ These instructions apply to every agent working in this repository, including Cl
 ## Commands
 
 - Build, package and relaunch: `scripts/install.sh`
+- Check a change: `scripts/check.sh` runs what CI will run for the files it touches (`scripts/test-plan.sh`); `--e2e` also plays the end-to-end tests when they're needed.
 - Test: `swift test`
 - Format: `scripts/format.sh` (CI fails on any formatting difference)
 - Offline guard: `scripts/check-no-network.sh`
 - Package only: `scripts/bundle.sh release build/Bloom.app`
-- Flower preview: `swift run Bloom --preview build/preview` writes a GIF and a strip of stills for each moment of the flower. Add the `preview` label to a pull request that changes how the flower looks or moves: the Preview workflow renders them on a Mac runner, posts them as a comment and refreshes it on every push. Read the stills there to check the change.
-- End-to-end: `scripts/e2e.sh` plays the journeys in `Sources/BloomE2E` on the real app. Each drags a file out of Finder with real mouse and key events, opens a flower, drops and checks what Bloom saves, or what an action does. `scripts/e2e.sh --matrix` also plays the petal matrix: a generated sample of every kind of file dropped on every petal Bloom offers for it, each result checked to open as its type, with a table of what worked, what can't work on that Mac and why, and what failed. The E2E workflow plays the journeys and the matrix on every pull request, on `main` and weekly, on macOS 15 and 26, and shows the screenshots in the run's summary; read those to check how a change behaves.
+- Flower preview: `swift run Bloom --preview build/preview` writes a GIF and a strip of stills for each moment of the flower. On a pull request that changes how the flower looks or moves, the Preview workflow renders them on a Mac runner, posts them as a comment and refreshes it on every push; the `preview` label asks for it on any other pull request. Read the stills there to check the change.
+- End-to-end: `scripts/e2e.sh` plays the journeys in `Sources/BloomE2E` on the real app. Each drags a file out of Finder with real mouse and key events, opens a flower, drops and checks what Bloom saves, or what an action does. `scripts/e2e.sh --matrix` also plays the petal matrix: a generated sample of every kind of file dropped on every petal Bloom offers for it, each result checked to open as its type, with a table of what worked, what can't work on that Mac and why, and what failed. The E2E workflow plays them when a change needs them (below) and shows the screenshots in the run's summary; read those to check how a change behaves.
+
+## Which tests run
+
+`scripts/test-plan.sh` picks the tests from the files a change touches, never from its title, and CI writes the plan at the top of each run's summary. Level 0 is the title check alone (documentation, issue forms); 1 adds the build and unit tests on macOS 15 and 26 (any code, tests or scripts); 2 adds the end-to-end journeys (drags, key taps, the flower, the Actions petals, the E2E suite); 3 adds the petal matrix (conversions, Compress, document rendering, the petal catalog, the sample files, the package, how tests run, and any file no rule names). The flower preview runs for changes to how the flower looks or moves. Pull requests play end-to-end tests on macOS 26; `main` plays on both, and Monday and hand-started runs play everything. The labels `run:journeys`, `run:matrix` and `preview` add a level. When you add a file, give it a rule in `scripts/test-plan.sh` if it needs less than the full run. Details: `CONTRIBUTING.md`.
 
 ## Layout
 
@@ -26,7 +31,7 @@ These instructions apply to every agent working in this repository, including Cl
 
 ## Rules
 
-- Every change lands through a pull request; the maintainer merges. CI (format, offline guard, warnings-as-errors build, tests, CodeQL for workflow files) must pass. CodeQL for Swift runs on `main` after each merge and weekly; fix its findings in a follow-up pull request.
+- Every change lands through a pull request titled `type(area): what changes` (types, areas and branch names: `CONTRIBUTING.md`); the maintainer merges. CI (format, offline guard, warnings-as-errors build, tests, CodeQL for workflow files) must pass. CodeQL for Swift runs on `main` after each merge and weekly; fix its findings in a follow-up pull request.
 - BloomCore never touches the network. Add no Swift packages.
 - New BloomCore behavior ships with tests that would fail if it broke. Assert results (files exist, open as their type, have the expected size or content), not implementation details.
 - A new way to drag, open, switch flowers or drop gets a journey in `Sources/BloomE2E` that fails if it breaks. A new kind of file gets a sample in the petal matrix.

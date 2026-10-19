@@ -13,8 +13,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  plan:
+    uses: ./.github/workflows/test-plan.yml
+
   build-test:
     name: Build, test and package${{ matrix.os != 'macos-15' && format(' on {0}', matrix.os) || '' }}
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -74,3 +79,22 @@ jobs:
           path: build/Bloom.zip
           if-no-files-found: error
           retention-days: 14
+
+  # The one check to require before merging: it passes when every job this change needed passed.
+  result:
+    name: CI result
+    needs: [plan, build-test]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job this change needed passed
+        env:
+          RESULTS: ${{ needs.plan.result }} ${{ needs.build-test.result }}
+        run: |
+          for result in $RESULTS; do
+            case "$result" in
+              success | skipped) ;;
+              *) echo "::error::A job ended $result." && exit 1 ;;
+            esac
+          done

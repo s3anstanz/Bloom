@@ -2,6 +2,7 @@ name: E2E
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
   schedule:
@@ -12,12 +13,19 @@ permissions:
   contents: read
 
 jobs:
+  plan:
+    # Of the labels, only run:journeys and run:matrix ask for more end-to-end tests.
+    if: github.event.action != 'labeled' || startsWith(github.event.label.name, 'run:')
+    uses: ./.github/workflows/test-plan.yml
+
   e2e:
     name: End-to-end journeys${{ matrix.os != 'macos-15' && format(' on {0}', matrix.os) || '' }}
+    needs: plan
+    if: needs.plan.outputs.journeys == 'true'
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, macos-26]
+        os: ${{ fromJSON(needs.plan.outputs.e2e-os) }}
     runs-on: ${{ matrix.os }}
     concurrency:
       group: e2e-${{ github.ref }}-${{ matrix.os }}
@@ -43,7 +51,9 @@ jobs:
           done
 
       - name: Play the journeys
-        run: scripts/e2e.sh "$RUNNER_TEMP/e2e" --matrix
+        env:
+          MATRIX: ${{ needs.plan.outputs.matrix == 'true' && '--matrix' || '' }}
+        run: scripts/e2e.sh "$RUNNER_TEMP/e2e" $MATRIX
 
       - name: Show Bloom crash reports
         if: failure()
@@ -76,3 +86,22 @@ jobs:
           path: ${{ runner.temp }}/e2e
           if-no-files-found: ignore
           retention-days: 14
+
+  # The one check to require before merging: it passes when every job this change needed passed.
+  result:
+    name: E2E result
+    needs: [plan, e2e]
+    if: always() && (github.event.action != 'labeled' || startsWith(github.event.label.name, 'run:'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job this change needed passed
+        env:
+          RESULTS: ${{ needs.plan.result }} ${{ needs.e2e.result }}
+        run: |
+          for result in $RESULTS; do
+            case "$result" in
+              success | skipped) ;;
+              *) echo "::error::A job ended $result." && exit 1 ;;
+            esac
+          done

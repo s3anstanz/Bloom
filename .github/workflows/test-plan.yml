@@ -1,0 +1,79 @@
+name: Test plan
+
+# Called by the CI, E2E and Preview workflows: works out from the changed files which tests a change needs
+# (scripts/test-plan.sh) and writes the plan to the run's summary. Pull requests compare with their base branch,
+# pushes to main with the previous main, and the Monday and hand-started runs test everything. Labels add levels:
+# run:journeys, run:matrix and preview.
+on:
+  workflow_call:
+    outputs:
+      build:
+        value: ${{ jobs.plan.outputs.build }}
+      preview:
+        value: ${{ jobs.plan.outputs.preview }}
+      journeys:
+        value: ${{ jobs.plan.outputs.journeys }}
+      matrix:
+        value: ${{ jobs.plan.outputs.matrix }}
+      e2e-os:
+        value: ${{ jobs.plan.outputs.e2e-os }}
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: Plan the tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.plan.outputs.build }}
+      preview: ${{ steps.plan.outputs.preview }}
+      journeys: ${{ steps.plan.outputs.journeys }}
+      matrix: ${{ steps.plan.outputs.matrix }}
+      e2e-os: ${{ steps.plan.outputs.e2e-os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Work out which tests this change needs
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          set -o pipefail
+          args=()
+          case "$EVENT" in
+            pull_request)
+              args+=(--base "origin/$BASE_REF")
+              ;;
+            push)
+              if git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+                args+=(--base "$BEFORE")
+              else
+                args+=(--all)
+              fi
+              ;;
+            *)
+              args+=(--all)
+              ;;
+          esac
+          for label in $LABELS; do
+            case "$label" in
+              run:journeys) args+=(--with journeys) ;;
+              run:matrix) args+=(--with matrix) ;;
+              preview) args+=(--with preview) ;;
+            esac
+          done
+          TEST_PLAN_SUMMARY="$GITHUB_STEP_SUMMARY" scripts/test-plan.sh "${args[@]}" | tee -a "$GITHUB_OUTPUT"
+          # Pull requests play the end-to-end tests on Tahoe; main, Monday and hand-started runs on both macOS versions.
+          if [ "$EVENT" = pull_request ]; then
+            echo 'e2e-os=["macos-26"]' >>"$GITHUB_OUTPUT"
+          else
+            echo 'e2e-os=["macos-15","macos-26"]' >>"$GITHUB_OUTPUT"
+          fi
