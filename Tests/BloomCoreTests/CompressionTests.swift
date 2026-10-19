@@ -67,7 +67,8 @@ final class CompressionTests: XCTestCase {
         let clip = try await Fixtures.video(in: folder, detailed: true)
         let original = try size(clip)
         for level in CompressionLevel.allCases {
-            let output = try XCTUnwrap(try await Engine.compress([clip], level: level).first)
+            let outputs = try await Engine.compress([clip], level: level)
+            let output = try XCTUnwrap(outputs.first)
             XCTAssertEqual(output.lastPathComponent, "clip (compressed).mp4")
             XCTAssertLessThan(try size(output), original, level.title)
             let problem = await defect(in: output)
