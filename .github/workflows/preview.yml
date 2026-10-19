@@ -1,0 +1,51 @@
+name: Preview
+
+on:
+  pull_request:
+    paths:
+      - "Package.swift"
+      - "Sources/Bloom/**"
+      - "Sources/BloomCore/Catalog.swift"
+      - "Sources/BloomCore/FlowerMotion.swift"
+      - "Sources/BloomCore/FlowerTabs.swift"
+      - "Sources/BloomCore/PetalLayout.swift"
+      - "Support/**"
+      - ".github/scripts/publish-preview.sh"
+      - ".github/workflows/preview.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: Flower preview
+    # Pull requests from forks and Dependabot get a read-only token, which can't publish the preview.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build Bloom.app
+        run: scripts/bundle.sh release build/Bloom.app
+
+      - name: Render the flower
+        run: |
+          build/Bloom.app/Contents/MacOS/Bloom --preview "$RUNNER_TEMP/preview"
+          ls -l "$RUNNER_TEMP/preview"
+
+      - name: Publish the preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/publish-preview.sh "$RUNNER_TEMP/preview"

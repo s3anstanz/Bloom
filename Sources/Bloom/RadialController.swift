@@ -33,6 +33,8 @@ final class RadialModel: ObservableObject {
     @Published var isVisible = false
     @Published var timeline = FlowerTimeline()
     @Published var isAnimating = false
+    /// Set by `Bloom --preview` to draw the flower at that instant instead of following the clock.
+    @Published var clock: TimeInterval?
 }
 
 /// Owns the floating flower window: placement, hover selection, and running the chosen petal.

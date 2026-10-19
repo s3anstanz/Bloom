@@ -20,6 +20,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        let arguments = CommandLine.arguments
+        if let flag = arguments.firstIndex(of: "--preview"), arguments.indices.contains(flag + 1) {
+            let folder = URL(fileURLWithPath: arguments[flag + 1])
+            Task { await FlowerPreview.run(into: folder) }
+            return
+        }
         let watcher = DragWatcher(radial: RadialController())
         watcher.start()
         self.watcher = watcher

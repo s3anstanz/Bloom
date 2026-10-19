@@ -9,6 +9,8 @@
 5. CI must be green: formatting, the no-network check, a warnings-as-errors build, the tests, and CodeQL for the workflow files. CodeQL for Swift takes about ten minutes, so it runs on `main` after each merge and weekly; fix its findings in a follow-up pull request.
 6. The maintainer reviews and merges.
 
+Pull requests that change the flower get a **Flower preview** comment. The Preview workflow runs Bloom on a Mac runner and posts each moment as a looping GIF with stills: the bloom, pointing at petals, switching flowers, a drop that saves, a drop that fails, and letting go. To make the same files on your Mac, run `swift run Bloom --preview build/preview`; macOS asks once to let your terminal record the screen.
+
 ## Ground rules
 
 - **Local only.** `BloomCore` never uses the network; `scripts/check-no-network.sh` enforces it.
