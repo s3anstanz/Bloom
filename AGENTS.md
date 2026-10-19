@@ -31,6 +31,7 @@ These instructions apply to every agent working in this repository, including Cl
 - A new way to drag, open, switch flowers or drop gets a journey in `Sources/BloomE2E` that fails if it breaks.
 - Minimum macOS 13. Gate newer APIs with `#available` and hide the petal when unavailable.
 - Never modify the original file; write results beside it with Finder-style unique names.
+- Report a Problem and Send Feedback open a GitHub issue form in the person's browser, filled in by `IssueReport`: the Bloom version and commit, macOS version and Mac chip, and for a failed petal the petal, file types and Bloom's message with file and folder names taken out. The person reads and submits it; the app sends nothing itself.
 - Keep the README's petal tables in sync with what the code offers.
 
 ## Review guidelines
@@ -40,6 +41,7 @@ Flag as **P0**:
 - Writing to, moving, renaming or deleting the user's original file, except through the Move action the user chose.
 - Overwriting any existing file instead of picking a unique name.
 - Network access, telemetry, analytics or a third-party package anywhere in the app.
+- An issue report that carries a file's name, folder or contents.
 - A failed conversion that leaves a partial or corrupt output behind, or reports success.
 - External tools run in a way that lets a file name become part of a command, rather than as separate arguments to `Process`.
 

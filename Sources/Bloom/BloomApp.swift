@@ -60,6 +60,9 @@ private struct StatusMenu: View {
                 }
             }
         Divider()
+        Button("Report a Problem…") { IssueLink.reportProblem() }
+        Button("Send Feedback…") { IssueLink.sendFeedback() }
+        Divider()
         Text("Bloom \(BloomCore.version)")
         Button("Quit Bloom") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
