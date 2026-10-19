@@ -72,11 +72,11 @@ enum Journeys {
             try await session.pickUp("photo.jpg")
             try await session.tap(.shift)
             try await session.point(atTab: .tools)
-            try await session.point(at: "Half Size", in: .tools, files: [photo])
+            try await session.point(at: Tool.halfSize.title, in: .tools, files: [photo])
             try await session.expectTab(.tools)
             try await session.drop()
             let half = try await session.expectFile("photo (50%).jpg")
-            try session.expectImage(half, type: .jpeg, width: 320, height: 240)
+            try session.expectImage(half, type: .jpeg, width: 600, height: 400)
         },
         Journey(name: "copy-path-holding-control", title: "⌃ Copy Path, holding ⌃ through the drop") { session in
             let photo = try session.image("photo.jpg")
