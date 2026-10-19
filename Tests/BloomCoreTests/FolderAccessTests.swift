@@ -57,11 +57,105 @@ final class FolderAccessTests: XCTestCase {
         XCTAssertFalse(isLockedReadable)
     }
 
+    func testAFileAsksForItsFolderAndAFolderAsksForItself() throws {
+        let desktop = home.appendingPathComponent("Desktop")
+        let project = desktop.appendingPathComponent("Project")
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+        let card = try Fixtures.textFile(in: desktop, name: "card.txt", contents: Fixtures.text)
+
+        XCTAssertEqual(FolderAccess.requestTarget(for: card).path, desktop.path)
+        // Asking for the Desktop's parent, the home folder, would never bring up the Desktop prompt.
+        XCTAssertEqual(FolderAccess.requestTarget(for: desktop).path, desktop.path)
+        XCTAssertEqual(FolderAccess.requestTarget(for: project).path, project.path)
+    }
+
+    @MainActor
+    func testOnlyFilesInDeniedFoldersAreStillRefused() async throws {
+        let desktop = try folder(named: "Desktop")
+        let downloads = try folder(named: "Downloads")
+        let mac = FakeMac(answers: [desktop.path: true, downloads.path: false])
+        let a = desktop.appendingPathComponent("a.pdf")
+        let b = downloads.appendingPathComponent("b.pdf")
+
+        let refused = await FolderAccess.resolve([a, b], canShare: mac.canShare, request: mac.request, pause: 0)
+
+        XCTAssertEqual(refused, [b])
+        XCTAssertEqual(mac.asked, [desktop.path, downloads.path])
+    }
+
+    @MainActor
+    func testAnAllowThatMacOSAppliesLateStillCounts() async throws {
+        let desktop = try folder(named: "Desktop")
+        let mac = FakeMac(answers: [desktop.path: true], checksBeforeApplied: 3)
+
+        let refused = await FolderAccess.resolve(
+            [desktop.appendingPathComponent("a.pdf")], canShare: mac.canShare, request: mac.request, pause: 0)
+
+        XCTAssertEqual(refused, [])
+    }
+
+    @MainActor
+    func testDontAllowFailsWithoutWaiting() async throws {
+        let desktop = try folder(named: "Desktop")
+        let mac = FakeMac(answers: [desktop.path: false])
+        let file = desktop.appendingPathComponent("a.pdf")
+
+        let refused = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, pause: 0)
+
+        XCTAssertEqual(refused, [file])
+        XCTAssertEqual(mac.checks, 1)
+    }
+
+    @MainActor
+    func testWaitingForAnAllowGivesUp() async throws {
+        let desktop = try folder(named: "Desktop")
+        let mac = FakeMac(answers: [desktop.path: true], checksBeforeApplied: .max)
+        let file = desktop.appendingPathComponent("a.pdf")
+
+        let refused = await FolderAccess.resolve([file], canShare: mac.canShare, request: mac.request, attempts: 5, pause: 0)
+
+        XCTAssertEqual(refused, [file])
+        XCTAssertEqual(mac.checks, 5)
+    }
+
+    private func folder(named name: String) throws -> URL {
+        let url = home.appendingPathComponent(name)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
     private func protected(_ path: String) -> FolderAccess.Folder? {
         FolderAccess.protectedFolder(containing: home.appendingPathComponent(path), home: home)
     }
 
     private func files(_ paths: String...) -> [URL] {
         paths.map { home.appendingPathComponent($0) }
+    }
+}
+
+/// Stands in for macOS: a folder's answer to the prompt, and AirDrop's check, which only passes once an Allow is applied.
+@MainActor
+private final class FakeMac {
+    private let answers: [String: Bool]
+    private let checksBeforeApplied: Int
+    private var allowed: Set<String> = []
+    private(set) var asked: [String] = []
+    private(set) var checks = 0
+
+    init(answers: [String: Bool], checksBeforeApplied: Int = 0) {
+        self.answers = answers
+        self.checksBeforeApplied = checksBeforeApplied
+    }
+
+    func request(_ folder: URL) async -> Bool {
+        asked.append(folder.path)
+        let answer = answers[folder.path] ?? false
+        if answer { allowed.insert(folder.path) }
+        return answer
+    }
+
+    func canShare(_ file: URL) -> Bool {
+        checks += 1
+        return allowed.contains(file.deletingLastPathComponent().path) && checks > checksBeforeApplied
     }
 }

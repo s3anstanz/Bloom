@@ -34,6 +34,43 @@ public enum FolderAccess {
         (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) != nil
     }
 
+    /// The folder to list for `item`: a dropped folder itself (the Desktop's parent is the unprotected home folder),
+    /// otherwise the folder the file is in.
+    public static func requestTarget(for item: URL) -> URL {
+        let isFolder = (try? item.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
+        // One spelling per folder, with or without a trailing slash, so equal folders compare equal.
+        return URL(fileURLWithPath: (isFolder ? item : item.deletingLastPathComponent()).path, isDirectory: true)
+    }
+
+    /// Asks for the folders of the files AirDrop refused and returns the files it still refuses.
+    /// `canShare` is AirDrop's own check. macOS applies an Allow a moment after the prompt closes, so files in
+    /// allowed folders are checked up to `attempts` times, `pause` nanoseconds apart; files in denied folders aren't waited on.
+    @MainActor
+    public static func resolve(
+        _ refused: [URL],
+        canShare: (URL) -> Bool,
+        request: (URL) async -> Bool = { await FolderAccess.request($0) },
+        attempts: Int = 20,
+        pause: UInt64 = 100_000_000
+    ) async -> [URL] {
+        var targets: [URL] = []
+        for target in refused.map(requestTarget) where !targets.contains(target) {
+            targets.append(target)
+        }
+        var denied: Set<URL> = []
+        for target in targets {
+            if await !request(target) { denied.insert(target) }
+        }
+        var remaining = refused
+        for attempt in 1...max(attempts, 1) {
+            remaining = remaining.filter { !canShare($0) }
+            let waiting = remaining.contains { !denied.contains(requestTarget(for: $0)) }
+            guard waiting, attempt < attempts else { break }
+            try? await Task.sleep(nanoseconds: pause)
+        }
+        return remaining
+    }
+
     /// What to tell the person when macOS still refuses `files` after asking. Each fits the flower's two-line caption.
     public static func deniedMessage(
         for files: [URL], home: URL = FileManager.default.homeDirectoryForCurrentUser

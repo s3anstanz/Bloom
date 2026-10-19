@@ -11,19 +11,11 @@ enum QuickActions {
                 throw ConversionError("AirDrop isn’t available on this Mac.")
             }
             // AirDrop takes only files Bloom may read on its own, and it says yes if any one file passes, so check each.
-            var refused = files.filter { !service.canPerform(withItems: [$0]) }
+            let refused = files.filter { !service.canPerform(withItems: [$0]) }
             if !refused.isEmpty {
                 // A drag doesn't count for folders like the Desktop. Reading the folder makes macOS ask the person, once.
-                var allowed = true
-                for folder in Set(refused.map { $0.deletingLastPathComponent() }) {
-                    if await !FolderAccess.request(folder) { allowed = false }
-                }
-                // macOS applies an Allow a moment after the prompt closes; until then AirDrop still sees the refusal.
-                for _ in 0..<20 where allowed && !refused.isEmpty {
-                    refused = refused.filter { !service.canPerform(withItems: [$0]) }
-                    if !refused.isEmpty { try? await Task.sleep(nanoseconds: 100_000_000) }
-                }
-                guard allowed, refused.isEmpty else { throw ConversionError(FolderAccess.deniedMessage(for: refused)) }
+                let stillRefused = await FolderAccess.resolve(refused, canShare: { service.canPerform(withItems: [$0]) })
+                guard stillRefused.isEmpty else { throw ConversionError(FolderAccess.deniedMessage(for: stillRefused)) }
             }
             NSApp.activate(ignoringOtherApps: true)
             service.perform(withItems: files)
