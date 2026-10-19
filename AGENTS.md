@@ -21,7 +21,7 @@ These instructions apply to every agent working in this repository, including Cl
 - `Sources/BloomRender`: helper executable bundled in Bloom.app that prints documents to PDF, so AppKit text printing never runs on the app's main thread.
 - `Sources/BloomE2E`: end-to-end journeys for `scripts/e2e.sh`, driving Finder and Bloom the way a person does.
 - `Tests/BloomCoreTests`: XCTest. Generate fixtures in the test; don't commit binary samples.
-- `Support/Info.plist`: bundle metadata (identifier `com.westfalllabs.bloom`).
+- `Support/Info.plist`: bundle metadata: identifier `com.westfalllabs.bloom` and the version the menu shows (releasing: `CONTRIBUTING.md`).
 
 ## Rules
 
