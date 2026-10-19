@@ -132,6 +132,7 @@ final class RadialController {
         model.timeline.dropped = Self.now
         model.timeline.chosen = index
         animate()
+        MenuBarIcon.shared.working()
         Task { @MainActor in
             do {
                 let message: String
@@ -146,6 +147,7 @@ final class RadialController {
                     if action == .move { self.hideNow() }
                     guard let result = try QuickActions.run(action, on: files) else {
                         self.hideNow()
+                        MenuBarIcon.shared.finished(saved: false)
                         return
                     }
                     message = result
@@ -153,12 +155,14 @@ final class RadialController {
                 self.model.phase = .done
                 self.model.status = message
                 self.finish(succeeded: true)
+                MenuBarIcon.shared.finished(saved: true)
                 NSSound(named: "Pop")?.play()
                 self.dismiss(after: 1.4)
             } catch {
                 self.model.phase = .failed
                 self.model.status = error.localizedDescription
                 self.finish(succeeded: false)
+                MenuBarIcon.shared.finished(saved: false)
                 self.dismiss(after: 4)
             }
         }

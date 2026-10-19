@@ -6,10 +6,14 @@ import SwiftUI
 @main
 struct BloomApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @StateObject private var icon = MenuBarIcon.shared
 
     var body: some Scene {
-        MenuBarExtra("Bloom", systemImage: "camera.macro") {
+        MenuBarExtra {
             StatusMenu()
+        } label: {
+            Image(nsImage: icon.image)
+                .accessibilityLabel("Bloom")
         }
     }
 }
