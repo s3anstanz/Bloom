@@ -6,10 +6,6 @@
 
 <!-- Tests added or updated, and anything checked by hand on a Mac. -->
 
-## Screenshots or recording
-
-<!-- Required for anything that changes how the flower, menu or cards look or move. -->
-
 ## Checklist
 
 - [ ] New BloomCore behavior has tests
