@@ -171,14 +171,14 @@ public enum Fixtures {
         return url
     }
 
-    /// Two seconds of H.264 video with the sample tone as its soundtrack. A `detailed` one is noise at a camera's
-    /// bitrate, so every Compress size makes it smaller.
+    /// Two seconds of H.264 video with the sample tone as its soundtrack. A `detailed` one is ProRes, as cameras and
+    /// screen recorders save it, so every Compress size makes it smaller.
     public static func video(in folder: URL, detailed: Bool = false) async throws -> URL {
         let silent = folder.appendingPathComponent("silent-\(UUID().uuidString).mov")
         let tone = try audio(in: folder, name: "soundtrack-\(UUID().uuidString).wav", seconds: 2)
         let url = folder.appendingPathComponent("clip.mov")
         try await writeSilentVideo(to: silent, detailed: detailed)
-        try await combine(video: silent, audio: tone, into: url)
+        try await combine(video: silent, audio: tone, into: url, keepingCodec: detailed)
         try FileManager.default.removeItem(at: silent)
         try FileManager.default.removeItem(at: tone)
         return url
@@ -199,14 +199,11 @@ public enum Fixtures {
 
     private static func writeSilentVideo(to url: URL, detailed: Bool = false) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
-        var settings: [String: Any] = [
-            AVVideoCodecKey: AVVideoCodecType.h264,
+        let settings: [String: Any] = [
+            AVVideoCodecKey: detailed ? AVVideoCodecType.proRes422 : AVVideoCodecType.h264,
             AVVideoWidthKey: 640,
             AVVideoHeightKey: 360,
         ]
-        if detailed {
-            settings[AVVideoCompressionPropertiesKey] = [AVVideoAverageBitRateKey: 20_000_000]
-        }
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
         let adaptor = AVAssetWriterInputPixelBufferAdaptor(
             assetWriterInput: input,
@@ -230,11 +227,11 @@ public enum Fixtures {
             else { throw FixtureError("Couldn’t create a video frame.") }
             CVPixelBufferLockBaseAddress(buffer, [])
             if let base = CVPixelBufferGetBaseAddress(buffer) {
-                let size = CVPixelBufferGetBytesPerRow(buffer) * CVPixelBufferGetHeight(buffer)
-                if detailed {
-                    arc4random_buf(base, size)
-                } else {
-                    memset(base, Int32(frame * 4 % 256), size)
+                let row = CVPixelBufferGetBytesPerRow(buffer)
+                for line in 0..<CVPixelBufferGetHeight(buffer) {
+                    // Bands that drift down the frame, so each frame differs from the last.
+                    let shade = detailed ? (line + frame * 4) % 256 : frame * 4 % 256
+                    memset(base + line * row, Int32(shade), row)
                 }
             }
             CVPixelBufferUnlockBaseAddress(buffer, [])
@@ -249,7 +246,7 @@ public enum Fixtures {
         guard writer.status == .completed else { throw writer.error ?? FixtureError("Couldn’t finish the sample video.") }
     }
 
-    private static func combine(video: URL, audio: URL, into output: URL) async throws {
+    private static func combine(video: URL, audio: URL, into output: URL, keepingCodec: Bool) async throws {
         let videoAsset = AVURLAsset(url: video)
         let audioAsset = AVURLAsset(url: audio)
         let duration = try await videoAsset.load(.duration)
@@ -266,7 +263,8 @@ public enum Fixtures {
             of: audioTrack,
             at: .zero
         )
-        guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+        let preset = keepingCodec ? AVAssetExportPresetPassthrough : AVAssetExportPresetHighestQuality
+        guard let session = AVAssetExportSession(asset: composition, presetName: preset) else {
             throw FixtureError("Couldn’t export the sample video.")
         }
         session.outputURL = output
