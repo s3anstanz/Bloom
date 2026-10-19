@@ -59,6 +59,12 @@ final class RadialController {
     private var motionRun = 0
     private lazy var panel: NSPanel = makePanel()
 
+    init() {
+        // Made at launch, not when the first flower opens. A panel first made mid-drag kept showing its first flower
+        // for the rest of that drag, so tabs switched the flower without the screen showing it.
+        _ = panel
+    }
+
     func present(mode: Mode, files: [URL]) {
         guard model.phase != .working else { return }
         hideTask?.cancel()
