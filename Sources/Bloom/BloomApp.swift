@@ -64,7 +64,12 @@ private struct StatusMenu: View {
                 }
             }
         Divider()
-        Text("Bloom \(BloomCore.version)")
+        Button("Report a Problem…") { IssueLink.reportProblem() }
+        Button("Send Feedback…") { IssueLink.sendFeedback() }
+        Divider()
+        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+            Text("Bloom \(version)")
+        }
         Button("Quit Bloom") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }

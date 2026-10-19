@@ -159,6 +159,12 @@ final class RadialController {
                 NSSound(named: "Pop")?.play()
                 self.dismiss(after: 1.4)
             } catch {
+                IssueLink.lastFailure = IssueReport.Failure(
+                    petal: item.title,
+                    mode: self.model.mode,
+                    files: files,
+                    message: error.localizedDescription
+                )
                 self.model.phase = .failed
                 self.model.status = error.localizedDescription
                 self.finish(succeeded: false)
