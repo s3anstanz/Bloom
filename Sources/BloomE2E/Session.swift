@@ -61,6 +61,10 @@ final class Session {
     private(set) var tappedTwice = false
     /// Set when Finder didn’t drag the files on the first try, so they were picked up again.
     private(set) var pickedUpTwice = false
+    /// Set when the flower didn't open for two taps, so the files were dragged out of Finder again.
+    private(set) var draggedTwice = false
+    /// The files the current drag holds, so a drag can pick them up again.
+    private var holding: [String] = []
 
     init(journey: String, output: URL) {
         name = journey
@@ -189,9 +193,15 @@ final class Session {
     }
 
     func pickUp(_ fileNames: [String]) async throws {
-        guard let first = fileNames.first else { throw Failure("Nothing to pick up.") }
         tappedTwice = false
         pickedUpTwice = false
+        draggedTwice = false
+        holding = fileNames
+        try await lift(fileNames)
+    }
+
+    private func lift(_ fileNames: [String]) async throws {
+        guard let first = fileNames.first else { throw Failure("Nothing to pick up.") }
         for attempt in 1...2 {
             if fileNames.count > 1 {
                 try select(fileNames)
@@ -386,19 +396,33 @@ final class Session {
     // MARK: Pointer and keys
 
     /// Taps `key` mid-drag and waits for its flower to open around the pointer. If it doesn't open, the key is
-    /// tapped once more, as a person would, and `tappedTwice` records it.
+    /// tapped once more, as a person would, and `tappedTwice` records it. If it still doesn't open, the files are
+    /// dragged out of Finder again, and `draggedTwice` records it.
     func tap(_ key: Key) async throws {
         try await press(key)
         try await release(key)
         do {
             try await waitForFlower(timeout: 3)
+            return
         } catch {
             log("the flower didn't open, so tapping \(key) again")
             tappedTwice = true
-            try await press(key)
-            try await release(key)
-            try await waitForFlower()
         }
+        try await press(key)
+        try await release(key)
+        do {
+            try await waitForFlower(timeout: 3)
+            return
+        } catch {
+            log("the flower still didn't open, so dragging the files again")
+            draggedTwice = true
+        }
+        try await cancelDrag()
+        try await Self.pause(1)
+        try await lift(holding)
+        try await press(key)
+        try await release(key)
+        try await waitForFlower()
     }
 
     /// Presses `key` and keeps holding it through the drop, as someone does when they hold ⌘ to reach Tools.
@@ -878,7 +902,9 @@ final class Session {
     static func bloomLog(seconds: Int = 20) -> [String] {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/log")
-        process.arguments = ["show", "--style", "compact", "--last", "\(seconds)s", "--predicate", "subsystem == \"\(bloomID)\""]
+        process.arguments = [
+            "show", "--style", "compact", "--debug", "--last", "\(seconds)s", "--predicate", "subsystem == \"\(bloomID)\"",
+        ]
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice

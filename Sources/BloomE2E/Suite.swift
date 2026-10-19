@@ -93,6 +93,9 @@ final class Suite {
             if session.pickedUpTwice {
                 session.note = [session.note, "⚠️ Finder picked the files up on a second try."].compactMap { $0 }.joined(separator: " ")
             }
+            if session.draggedTwice {
+                session.note = [session.note, "⚠️ The flower opened only for a second drag."].compactMap { $0 }.joined(separator: " ")
+            }
             if let note = session.note {
                 result += "<br>\(note)"
                 print("  \(note)")
@@ -116,6 +119,8 @@ final class Suite {
         if count(.unavailable) > 0 { heading += " · \(count(.unavailable)) can’t work on this Mac" }
         let twice = outcomes.filter(\.tappedTwice).count
         if twice > 0 { heading += " · \(twice) needed a second tap" }
+        let redragged = outcomes.filter(\.draggedTwice).count
+        if redragged > 0 { heading += " · ⚠️ \(redragged) needed a second drag" }
         heading += failed == 0 ? " · none failed" : " · **\(failed) failed**"
         let rows = outcomes.map { outcome -> String in
             let mark: String
@@ -127,6 +132,7 @@ final class Suite {
             var detail = outcome.detail.replacingOccurrences(of: "|", with: "\\|").replacingOccurrences(of: "\n", with: " ")
             if outcome.tappedTwice { detail += " ⚠️ the flower opened only on a second tap" }
             if outcome.pickedUpTwice { detail += " ⚠️ Finder picked the files up on a second try" }
+            if outcome.draggedTwice { detail += " ⚠️ the flower opened only for a second drag" }
             let shot = outcome.screenshot.map { "[screenshot](\($0))" } ?? ""
             return "| \(outcome.sample) | \(flower(outcome.mode)) | \(outcome.petal) | \(mark) \(detail) | \(shot) |"
         }

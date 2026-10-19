@@ -34,13 +34,17 @@ final class DragWatcher: NSObject {
         if late > DragStart.lateness {
             dragLog.notice("Mouse button down \(late, format: .fixed(precision: 2), privacy: .public) s before Bloom saw it")
         }
+        dragLog.debug("Mouse button down, seen after \(late, format: .fixed(precision: 2), privacy: .public) s")
         dragStart.pressed(changeCount: pasteboard.changeCount, late: late)
     }
 
     private func mouseDragged() {
         guard timer == nil, dragStart.began(changeCount: pasteboard.changeCount) else { return }
         let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
-        guard !urls.isEmpty else { return }
+        guard !urls.isEmpty else {
+            dragLog.debug("A drag began without files")
+            return
+        }
         files = urls
         dragLog.notice("Drag started with \(urls.count, privacy: .public) files")
         taps = KeyTaps(heldAtDragStart: Self.heldKeys())

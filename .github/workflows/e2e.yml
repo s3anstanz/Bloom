@@ -50,6 +50,9 @@ jobs:
             defaults write com.apple.universalaccess "$key" -bool false
           done
 
+      - name: Keep Bloom's debug log
+        run: sudo log config --subsystem com.westfalllabs.bloom --mode "level:debug,persist:debug"
+
       - name: Play the journeys
         env:
           MATRIX: ${{ needs.plan.outputs.matrix == 'true' && '--matrix' || '' }}

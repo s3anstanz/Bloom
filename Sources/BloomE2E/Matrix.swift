@@ -26,6 +26,8 @@ struct Outcome {
     var tappedTwice = false
     /// Finder didn't start the first drag, so the files were picked up again.
     var pickedUpTwice = false
+    /// The flower didn't open for two taps, so the files were dragged again.
+    var draggedTwice = false
 }
 
 /// Drags each sample out of Finder onto every petal of every flower, one drop at a time, and checks what each one does.
@@ -112,7 +114,7 @@ enum Matrix {
                     }
                 }
                 print("\(outcome.0 == .failed ? "FAIL" : "PASS") \(sample.name) · \(petal.label): \(outcome.1)")
-                if outcome.0 == .failed {
+                if outcome.0 == .failed || session.draggedTwice {
                     print("  Bloom's log:")
                     Session.bloomLog().forEach { print("    \($0)") }
                 }
@@ -121,6 +123,7 @@ enum Matrix {
                     sample: sample.name, mode: mode, petal: petal.label, verdict: outcome.0, detail: outcome.1, screenshot: shot)
                 row.tappedTwice = session.tappedTwice
                 row.pickedUpTwice = session.pickedUpTwice
+                row.draggedTwice = session.draggedTwice
                 outcomes.append(row)
             }
         }
