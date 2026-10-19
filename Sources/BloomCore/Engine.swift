@@ -370,21 +370,25 @@ public enum Engine {
             let asset = AVURLAsset(url: file)
             return try await export(asset, from: file, presets: [level.videoPreset], as: .mp4, ext: "mp4", suffix: " (compressed)")
         case .audio:
-            let bitrate = level.audioBitratePerChannel * CompressionLevel.channels(of: file)
             let output = outputURL(for: file, ext: "m4a", suffix: " (compressed)")
             let aac = ["-f", "m4af", "-d", "aac"]
-            do {
-                try await shell("/usr/bin/afconvert", aac + ["-b", String(bitrate), file.path, output.path])
-            } catch {
-                // Apple's AAC encoder only accepts certain bitrates for each sample rate and channel count
-                // (it rejects them with '!dat'); its default bitrate always works.
-                discard([output])
+            // Apple's AAC encoder only accepts certain bitrates for each sample rate and channel count (it rejects the
+            // rest with '!dat'). Stepping down to the next one it takes keeps each size at or below what it promises.
+            let requested = level.audioBitratePerChannel * CompressionLevel.channels(of: file)
+            for bitrate in [requested] + CompressionLevel.aacBitrates.filter({ $0 < requested }) {
                 do {
-                    try await shell("/usr/bin/afconvert", aac + [file.path, output.path])
+                    try await shell("/usr/bin/afconvert", aac + ["-b", String(bitrate), file.path, output.path])
+                    return output
                 } catch {
                     discard([output])
-                    throw error
                 }
+            }
+            // Its default bitrate always works.
+            do {
+                try await shell("/usr/bin/afconvert", aac + [file.path, output.path])
+            } catch {
+                discard([output])
+                throw error
             }
             return output
         case .pdf:

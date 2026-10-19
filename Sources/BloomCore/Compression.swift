@@ -73,6 +73,9 @@ public enum CompressionLevel: CaseIterable {
         }
     }
 
+    /// Common AAC bitrates, highest first, to step down through when the encoder rejects the one asked for.
+    static let aacBitrates = [256_000, 192_000, 160_000, 128_000, 96_000, 80_000, 64_000, 48_000, 32_000, 24_000, 16_000]
+
     /// Compressed audio keeps mono as mono and mixes anything wider down to stereo.
     static func channels(of file: URL) -> Int {
         min(Int((try? AVAudioFile(forReading: file).fileFormat.channelCount) ?? 2), 2)

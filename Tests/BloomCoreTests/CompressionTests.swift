@@ -51,6 +51,17 @@ final class CompressionTests: XCTestCase {
         XCTAssertEqual(Set(sizes).count, sizes.count)
     }
 
+    func testEachAudioSizeMakesASmallerFileThanTheNext() async throws {
+        let tone = try Fixtures.audio(in: folder, seconds: 4)
+        var sizes: [Int] = []
+        for level in CompressionLevel.allCases {
+            let outputs = try await Engine.compress([tone], level: level)
+            sizes.append(try size(try XCTUnwrap(outputs.first)))
+        }
+        XCTAssertEqual(sizes, sizes.sorted())
+        XCTAssertEqual(Set(sizes).count, sizes.count, "Each size should make a different file: \(sizes)")
+    }
+
     func testCompressingWhatWouldNotShrinkSavesNothing() async throws {
         let tiny = try Fixtures.photo(in: folder, name: "tiny.jpg", width: 256, height: 256, quality: 0.05)
         do {
