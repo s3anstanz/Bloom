@@ -2,7 +2,6 @@ name: E2E
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
   schedule:
@@ -15,14 +14,11 @@ permissions:
 jobs:
   e2e:
     name: End-to-end journeys${{ matrix.os != 'macos-15' && format(' on {0}', matrix.os) || '' }}
-    # Labelling a pull request only matters when the label asks for the full matrix.
-    if: github.event.action != 'labeled' || github.event.label.name == 'full-e2e'
     strategy:
       fail-fast: false
       matrix:
         os: [macos-15, macos-26]
     runs-on: ${{ matrix.os }}
-    # In the job, so another label's event, which skips it, doesn't cancel a run in progress.
     concurrency:
       group: e2e-${{ github.ref }}-${{ matrix.os }}
       cancel-in-progress: true
@@ -30,11 +26,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: read
-    env:
-      # The petal matrix drops a sample of every kind of file on every petal. It runs on main, weekly, by hand and on
-      # pull requests labelled full-e2e; other pull requests play the journeys only.
-      MATRIX: >-
-        ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-e2e')) && '--matrix' || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,7 +43,7 @@ jobs:
           done
 
       - name: Play the journeys
-        run: scripts/e2e.sh "$RUNNER_TEMP/e2e" $MATRIX
+        run: scripts/e2e.sh "$RUNNER_TEMP/e2e" --matrix
 
       - name: Show Bloom crash reports
         if: failure()
