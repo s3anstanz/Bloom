@@ -99,6 +99,9 @@ final class RadialController {
     /// `offset` is the cursor position relative to the flower's center, y pointing up.
     @discardableResult
     func hover(_ offset: CGPoint?) -> Bool {
+        // After the button comes up the flower folds, but the drag can still report the pointer before it delivers the
+        // drop. Keeping the petal it was on lets that drop land; with no petal lit, AppKit would cancel it.
+        guard model.timeline.closed == nil else { return model.highlighted != nil }
         hoverTab(offset.flatMap { tab(at: $0) })
         let index = offset.flatMap { itemIndex(at: $0) }
         if index != model.highlighted {
@@ -186,7 +189,7 @@ final class RadialController {
     }
 
     private func itemIndex(at offset: CGPoint) -> Int? {
-        guard model.phase == .choosing, model.timeline.closed == nil else { return nil }
+        guard model.phase == .choosing else { return nil }
         return PetalLayout.index(
             at: offset,
             count: model.items.count,
@@ -196,7 +199,7 @@ final class RadialController {
     }
 
     private func tab(at offset: CGPoint) -> Mode? {
-        guard model.phase == .choosing, model.timeline.closed == nil else { return nil }
+        guard model.phase == .choosing else { return nil }
         return FlowerTabs.mode(
             at: CGPoint(x: offset.x, y: offset.y + RadialLayout.tabsDrop),
             tabWidth: RadialLayout.tabSize.width,
