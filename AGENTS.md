@@ -11,6 +11,7 @@ These instructions apply to every agent working in this repository, including Cl
 - Format: `scripts/format.sh` (CI fails on any formatting difference)
 - Offline guard: `scripts/check-no-network.sh`
 - Package only: `scripts/bundle.sh release build/Bloom.app`
+- Flower preview: `swift run Bloom --preview build/preview` writes a GIF and a strip of stills for each moment of the flower. Add the `preview` label to a pull request that changes how the flower looks or moves: the Preview workflow renders them on a Mac runner, posts them as a comment and refreshes it on every push. Read the stills there to check the change.
 
 ## Layout
 

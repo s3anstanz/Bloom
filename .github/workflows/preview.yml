@@ -1,0 +1,55 @@
+name: Preview
+
+# Runs on pull requests labelled `preview`: when the label is added and on every push while it stays.
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: Flower preview
+    # Pull requests from forks and Dependabot get a read-only token, which can't publish the preview.
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'preview')
+      && (github.event.action != 'labeled' || github.event.label.name == 'preview')
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    # At job level, so adding some other label doesn't cancel a preview that's rendering.
+    concurrency:
+      group: preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build Bloom.app
+        run: scripts/bundle.sh release build/Bloom.app
+
+      - name: Turn off Reduce Motion and Reduce Transparency
+        run: |
+          for key in reduceMotion reduceTransparency; do
+            echo "$key was $(defaults read com.apple.universalaccess "$key" 2>&1 || true)"
+            defaults write com.apple.universalaccess "$key" -bool false
+            echo "$key is $(defaults read com.apple.universalaccess "$key")"
+          done
+
+      - name: Render the flower
+        run: |
+          build/Bloom.app/Contents/MacOS/Bloom --preview "$RUNNER_TEMP/preview"
+          ls -l "$RUNNER_TEMP/preview"
+
+      - name: Publish the preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/publish-preview.sh "$RUNNER_TEMP/preview"

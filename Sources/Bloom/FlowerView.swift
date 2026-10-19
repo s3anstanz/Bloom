@@ -43,7 +43,7 @@ struct FlowerView: View {
     var body: some View {
         TimelineView(.animation(paused: !model.isAnimating)) { context in
             // Once the motion has settled, draw its final frame rather than the last tick before it.
-            let now = model.isAnimating ? context.date.timeIntervalSinceReferenceDate : .infinity
+            let now = model.clock ?? (model.isAnimating ? context.date.timeIntervalSinceReferenceDate : .infinity)
             content(FlowerMotion.frame(model.timeline, at: now, petals: model.items.count, reduceMotion: reduceMotion))
         }
         .frame(width: RadialLayout.size.width, height: RadialLayout.size.height)
