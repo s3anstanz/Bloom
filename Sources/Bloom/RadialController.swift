@@ -99,11 +99,17 @@ final class RadialController {
     /// `offset` is the cursor position relative to the flower's center, y pointing up.
     @discardableResult
     func hover(_ offset: CGPoint?) -> Bool {
-        hoverTab(offset.flatMap { tab(at: $0) })
+        // After the button comes up the flower folds, but the drag can still report where it was let go before it
+        // delivers the drop. Petals keep answering so that drop lands on the petal under it; AppKit cancels a drop
+        // whose last report found none. Tabs stop switching flowers.
+        let isFolding = model.timeline.closed != nil
+        if !isFolding {
+            hoverTab(offset.flatMap { tab(at: $0) })
+        }
         let index = offset.flatMap { itemIndex(at: $0) }
         if index != model.highlighted {
             model.highlighted = index
-            if index != nil {
+            if index != nil, !isFolding {
                 NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
             }
         }
@@ -186,7 +192,7 @@ final class RadialController {
     }
 
     private func itemIndex(at offset: CGPoint) -> Int? {
-        guard model.phase == .choosing, model.timeline.closed == nil else { return nil }
+        guard model.phase == .choosing else { return nil }
         return PetalLayout.index(
             at: offset,
             count: model.items.count,
@@ -196,7 +202,7 @@ final class RadialController {
     }
 
     private func tab(at offset: CGPoint) -> Mode? {
-        guard model.phase == .choosing, model.timeline.closed == nil else { return nil }
+        guard model.phase == .choosing else { return nil }
         return FlowerTabs.mode(
             at: CGPoint(x: offset.x, y: offset.y + RadialLayout.tabsDrop),
             tabWidth: RadialLayout.tabSize.width,
