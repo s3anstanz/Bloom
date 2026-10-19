@@ -56,7 +56,8 @@ enum QuickActions {
         }
         guard service.canPerform(withItems: files) else {
             let readable = files.allSatisfy { FileManager.default.isReadableFile(atPath: $0.path) }
-            dragLog.notice("AirDrop: macOS can't send these \(files.count, privacy: .public) files; readable by Bloom: \(readable, privacy: .public)")
+            let state = "\(files.count) files, readable by Bloom: \(readable)"
+            dragLog.notice("AirDrop: macOS can't send these files (\(state, privacy: .public))")
             return nil
         }
         return service
