@@ -1,8 +1,8 @@
 import AppKit
 import BloomCore
 
-/// Bloom's menu bar icon follows what Bloom is doing: small at rest, in full bloom while a file is dragged, a bright
-/// petal circling while a petal works, and a filled center for a moment once the result is saved.
+/// Bloom's menu bar icon follows what Bloom is doing: closed a little at rest, in full bloom while a file is dragged, a
+/// bright petal circling while a petal works, and a filled center for a moment once the result is saved.
 @MainActor
 final class MenuBarIcon: ObservableObject {
     enum State {
@@ -61,9 +61,12 @@ final class MenuBarIcon: ObservableObject {
 
 /// Six of the flower's petals around a ring, drawn on a 24-point grid.
 enum MenuBarGlyph {
-    /// A 16-point template image, which macOS colours for light and dark menu bars.
+    /// As tall as the icons beside it in the menu bar.
+    static let side: CGFloat = 18
+
+    /// A template image, which macOS colours for light and dark menu bars.
     static func image(_ state: MenuBarIcon.State, lead: Int? = nil) -> NSImage {
-        let image = NSImage(size: NSSize(width: 16, height: 16), flipped: true) { rect in
+        let image = NSImage(size: NSSize(width: side, height: side), flipped: true) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
             paint(state, lead: lead, in: context, side: rect.width, color: .black)
             return true
@@ -83,18 +86,18 @@ enum MenuBarGlyph {
             let angle = Double(index) * .pi / 3
             let petal =
                 resting
-                ? PetalLayout.outline(center: center, angle: angle, width: 4.6, inner: 3.4, outer: 8.6)
+                ? PetalLayout.outline(center: center, angle: angle, width: 5.4, inner: 3.8, outer: 10.2)
                 : PetalLayout.outline(center: center, angle: angle, width: 5.8, inner: 4.4, outer: 11.4)
             let fade = lead.map { Double((($0 - index) % 6 + 6) % 6) * 0.15 } ?? 0
             context.setFillColor(color.withAlphaComponent(1 - fade).cgColor)
             context.addPath(petal)
             context.fillPath()
         }
-        let ring: CGFloat = resting ? 2.2 : 3.1
+        let ring: CGFloat = resting ? 2.6 : 3.1
         context.setFillColor(color.cgColor)
         context.addEllipse(in: CGRect(x: 12 - ring, y: 12 - ring, width: ring * 2, height: ring * 2))
         if state != .saved {
-            let hole: CGFloat = resting ? 1.0 : 1.7
+            let hole: CGFloat = resting ? 1.2 : 1.7
             context.addEllipse(in: CGRect(x: 12 - hole, y: 12 - hole, width: hole * 2, height: hole * 2))
         }
         context.fillPath(using: .evenOdd)
