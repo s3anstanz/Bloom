@@ -58,7 +58,7 @@ git clone https://github.com/s3anstanz/Bloom.git ~/Bloom
 ~/Bloom/scripts/install.sh
 ```
 
-Bloom runs from the menu bar (flower icon). From that menu you can set **Compress To** (75%, 50% or 25%) and turn on **Launch at Login**. To get the latest version:
+Bloom runs from the menu bar. Its flower icon opens while you drag a file, circles while Bloom works and fills its center when a result is saved. From that menu you can set **Compress To** (75%, 50% or 25%) and turn on **Launch at Login**. To get the latest version:
 
 ```bash
 ~/Bloom/scripts/update.sh

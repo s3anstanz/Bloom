@@ -22,6 +22,20 @@ final class PetalLayoutTests: XCTestCase {
         XCTAssertNil(petal(0, 200))
         XCTAssertNil(petal(0, 100, count: 0))
     }
+
+    func testOutlineReachesFromItsBaseToItsTipInItsDirection() {
+        let center = CGPoint(x: 12, y: 12)
+        let up = PetalLayout.outline(center: center, angle: 0, width: 6, inner: 4, outer: 11)
+        XCTAssertTrue(up.contains(CGPoint(x: 12, y: 4.5)))
+        XCTAssertTrue(up.contains(CGPoint(x: 12, y: 1.5)))
+        XCTAssertFalse(up.contains(center))
+        XCTAssertFalse(up.contains(CGPoint(x: 12, y: 20)))
+        XCTAssertEqual(up.boundingBoxOfPath.midX, 12, accuracy: 0.001)
+
+        let right = PetalLayout.outline(center: center, angle: .pi / 2, width: 6, inner: 4, outer: 11)
+        XCTAssertTrue(right.contains(CGPoint(x: 19.5, y: 12)))
+        XCTAssertFalse(right.contains(CGPoint(x: 12, y: 4.5)))
+    }
 }
 
 final class FlowerTabsTests: XCTestCase {

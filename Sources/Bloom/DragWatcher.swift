@@ -38,6 +38,7 @@ final class DragWatcher: NSObject {
         guard !urls.isEmpty else { return }
         files = urls
         taps = KeyTaps(heldAtDragStart: Self.heldKeys())
+        MenuBarIcon.shared.dragStarted()
         let timer = Timer(timeInterval: 1.0 / 60.0, target: self, selector: #selector(tick), userInfo: nil, repeats: true)
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
@@ -58,6 +59,7 @@ final class DragWatcher: NSObject {
         timer?.invalidate()
         timer = nil
         if taps.isOpen { radial.dragEnded() }
+        MenuBarIcon.shared.dragEnded()
         taps = KeyTaps(heldAtDragStart: [])
     }
 
