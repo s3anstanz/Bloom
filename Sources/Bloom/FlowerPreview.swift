@@ -148,7 +148,7 @@ final class FlowerPreview {
         model.items = model.items.map { item in
             guard case .action(.airDrop) = item.operation else { return item }
             var item = item
-            item.unavailable = QuickActions.airDropRefused
+            item.unavailable = QuickActions.airDropMissing
             return item
         }
         var stills: [Still] = []
@@ -377,10 +377,10 @@ final class FlowerPreview {
             (.working, 4, "Working 3"),
             (.saved, nil, "Saved"),
         ]
-        // A 22-point light menu bar, a dark one, then a close-up.
+        // A 24-point light menu bar, a dark one, then a close-up.
         let rows: [(background: NSColor, glyph: NSColor, height: Int, side: CGFloat)] = [
-            (NSColor(white: 0.93, alpha: 1), .black, 44, 32),
-            (NSColor(white: 0.17, alpha: 1), .white, 44, 32),
+            (NSColor(white: 0.93, alpha: 1), .black, 48, MenuBarGlyph.side * 2),
+            (NSColor(white: 0.17, alpha: 1), .white, 48, MenuBarGlyph.side * 2),
             (.white, .black, 150, 128),
         ]
         let cell = 120

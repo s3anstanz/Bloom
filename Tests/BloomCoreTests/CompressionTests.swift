@@ -41,6 +41,45 @@ final class CompressionTests: XCTestCase {
         }
     }
 
+    /// How opaque `url` is in its top-right corner, from 0 (clear) to 255.
+    private func cornerAlpha(_ url: URL) throws -> UInt8 {
+        let source = try XCTUnwrap(CGImageSourceCreateWithURL(url as CFURL, nil))
+        let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        guard
+            let context = CGContext(
+                data: nil,
+                width: 1,
+                height: 1,
+                bitsPerComponent: 8,
+                bytesPerRow: 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+        else { throw FixtureError("Couldn’t read the result.") }
+        context.draw(image, in: CGRect(x: 1 - image.width, y: 1 - image.height, width: image.width, height: image.height))
+        return try XCTUnwrap(context.data).load(fromByteOffset: 3, as: UInt8.self)
+    }
+
+    func testATransparentPictureStaysAPNGThatStillShowsThrough() async throws {
+        let picture = try Fixtures.image(in: folder, width: 3200, height: 2000)
+        let outputs = try await Engine.compress([picture], level: .smaller)
+        let output = try XCTUnwrap(outputs.first)
+        XCTAssertEqual(output.pathExtension, "png")
+        let (width, height) = try pixels(output)
+        XCTAssertEqual(width, 1600)
+        XCTAssertEqual(height, 1000)
+        XCTAssertEqual(try cornerAlpha(output), 0)
+        XCTAssertLessThan(try size(output), try size(picture))
+    }
+
+    func testAnOpaquePictureSavedWithAnAlphaChannelStillBecomesAJPEG() async throws {
+        let picture = try Fixtures.image(in: folder, transparent: false, width: 3200, height: 2000)
+        let outputs = try await Engine.compress([picture], level: .smaller)
+        let output = try XCTUnwrap(outputs.first)
+        XCTAssertEqual(output.pathExtension, "jpg")
+        XCTAssertEqual(try cornerAlpha(output), 255)
+    }
+
     func testSmallerSizesMakeSmallerFiles() async throws {
         let photo = try Fixtures.photo(in: folder, width: 3200, height: 2000, quality: 1)
         var sizes: [Int] = []

@@ -20,6 +20,12 @@
 	<string>13.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Bloom asks only when you AirDrop a file from your Desktop, so AirDrop can send it. Bloom never uploads anything.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Bloom asks only when you AirDrop a file from Documents, so AirDrop can send it. Bloom never uploads anything.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Bloom asks only when you AirDrop a file from Downloads, so AirDrop can send it. Bloom never uploads anything.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

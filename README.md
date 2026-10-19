@@ -83,7 +83,7 @@ When several files are dragged together, the flowers offer what works on all of 
 
 | Tool | Works on |
 |---|---|
-| Compress | Rest on it and three sizes bloom past it: **Smaller**, **Balanced** and **Sharper**; dropping on Compress itself makes Balanced. Images → JPG up to 1600, 2400 or 3200 px; video → MP4 up to 540p, 720p or 1080p; audio → AAC at 32, 64 or 96 kbps per channel. PDFs use macOS's Reduce File Size filter. A result that isn't smaller than the original isn't kept |
+| Compress | Rest on it and three sizes bloom past it: **Smaller**, **Balanced** and **Sharper**; dropping on Compress itself makes Balanced. Images → JPG up to 1600, 2400 or 3200 px, or PNG for images with transparency so it isn't filled in; video → MP4 up to 540p, 720p or 1080p; audio → AAC at 32, 64 or 96 kbps per channel. PDFs use macOS's Reduce File Size filter. A result that isn't smaller than the original isn't kept |
 | Half Size, Flip, Grayscale, No Meta (removes location and camera data) | Images |
 | Rotate | Images and PDFs |
 | Remove BG | Images, on macOS 14 or later |
@@ -97,7 +97,7 @@ When several files are dragged together, the flowers offer what works on all of 
 
 | Action | What it does |
 |---|---|
-| **AirDrop** | Opens the AirDrop sheet |
+| **AirDrop** | Opens the AirDrop sheet. The first AirDrop from your Desktop, Documents or Downloads asks for access to that folder |
 | **Float** | Keeps the file in a small card on screen. Drag its icon anywhere later to drop a copy, double-click to open, drag the card's edge to move it, ✕ to close |
 | **Copy** | Puts the file on the clipboard, ready to paste with ⌘V |
 | **Move** | Asks for a folder and moves the file there |

@@ -120,6 +120,28 @@ final class CatalogTests: XCTestCase {
         XCTAssertEqual(item.choices.map(\.detail), ["Compress to JPEG, up to 1600 px", item.detail, "Compress to JPEG, up to 3200 px"])
     }
 
+    func testCompressSaysTransparentPicturesStayPNG() async throws {
+        let folder = try Fixtures.makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let transparent = try Fixtures.image(in: folder)
+        let opaque = try Fixtures.image(in: folder, name: "opaque.png", transparent: false)
+        let clear = await WheelCatalog.items(for: [transparent], mode: .tools).first { $0.title == "Compress" }
+        XCTAssertEqual(clear?.detail, "Compress to PNG, up to 2400 px")
+        XCTAssertEqual(clear?.choices.map(\.badge), ["1600 px", "2400 px", "3200 px"])
+        let solid = await WheelCatalog.items(for: [opaque], mode: .tools).first { $0.title == "Compress" }
+        XCTAssertEqual(solid?.detail, "Compress to JPEG, up to 2400 px")
+        let both = await WheelCatalog.items(for: [transparent, opaque], mode: .tools).first { $0.title == "Compress" }
+        XCTAssertEqual(both?.detail, "Compress at the Balanced size")
+    }
+
+    func testOneClearPixelInAHugePictureKeepsItPNG() async throws {
+        let folder = try Fixtures.makeFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let picture = try Fixtures.image(in: folder, transparent: false, width: 8000, height: 500, clearPixel: true)
+        let item = await WheelCatalog.items(for: [picture], mode: .tools).first { $0.title == "Compress" }
+        XCTAssertEqual(item?.detail, "Compress to PNG, up to 2400 px")
+    }
+
     func testCompressSizesForVideoAndAudio() async throws {
         let found = await compress(["clip.mov"])
         let video = try XCTUnwrap(found)

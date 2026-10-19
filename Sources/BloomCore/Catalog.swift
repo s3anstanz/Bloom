@@ -297,10 +297,11 @@ public enum WheelCatalog {
             }
         case .tools:
             let channels = kinds.allSatisfy { $0 == .audio } ? audioChannels(files) : nil
+            let transparent = kinds.allSatisfy { $0 == .image } ? transparency(files) : nil
             return Tool.allCases
                 .filter { $0.applies(to: files, kinds: kinds) }
                 .map { tool -> WheelItem in
-                    if tool == .compress { return compressItem(kinds: kinds, audioChannels: channels) }
+                    if tool == .compress { return compressItem(kinds: kinds, audioChannels: channels, transparent: transparent) }
                     return WheelItem(
                         operation: .tool(tool), title: tool.title, symbol: tool.symbol, detail: tool.detail, progress: tool.progress)
                 }
@@ -312,10 +313,12 @@ public enum WheelCatalog {
 
     /// Dropping on Compress makes the Balanced size, and resting on it opens all three, each captioned with what it makes
     /// of these files. PDFs go through macOS's filter, which has one size.
-    private static func compressItem(kinds: [FileKind], audioChannels: Int?) -> WheelItem {
+    private static func compressItem(kinds: [FileKind], audioChannels: Int?, transparent: Bool?) -> WheelItem {
         let tool = Tool.compress
         func detail(_ level: CompressionLevel) -> String {
-            guard let result = level.result(for: kinds, audioChannels: audioChannels) else { return "Compress at the \(level.title) size" }
+            guard let result = level.result(for: kinds, audioChannels: audioChannels, transparent: transparent) else {
+                return "Compress at the \(level.title) size"
+            }
             return "Compress to \(result.detail)"
         }
         guard !kinds.allSatisfy({ $0 == .pdf }) else {
@@ -334,7 +337,7 @@ public enum WheelCatalog {
                 symbol: tool.symbol,
                 detail: detail(level),
                 progress: tool.progress,
-                badge: level.result(for: kinds, audioChannels: audioChannels)?.badge
+                badge: level.result(for: kinds, audioChannels: audioChannels, transparent: transparent)?.badge
             )
         }
         return WheelItem(
@@ -345,6 +348,12 @@ public enum WheelCatalog {
             progress: tool.progress,
             choices: sizes
         )
+    }
+
+    /// Whether every image shows through somewhere (true) or none does (false), or nil when they differ.
+    private static func transparency(_ files: [URL]) -> Bool? {
+        let found = Set(files.map(CompressionLevel.isTransparent))
+        return found.count == 1 ? found.first : nil
     }
 
     /// The channel count every file compresses to, or nil when they differ.
