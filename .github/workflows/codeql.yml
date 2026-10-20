@@ -2,6 +2,7 @@ name: CodeQL
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   push:
     branches: [main]
   schedule:
@@ -15,11 +16,15 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  plan:
+    uses: ./.github/workflows/test-plan.yml
+
   # Building Swift for CodeQL takes about ten minutes on macOS, so pull requests skip this job. It runs on
-  # every push to main and weekly; its findings are fixed in a follow-up pull request.
+  # substantive pushes to main and weekly; its findings are fixed in a follow-up pull request.
   swift:
     name: Analyze (swift)
-    if: github.event_name != 'pull_request'
+    needs: plan
+    if: github.event_name != 'pull_request' && needs.plan.outputs.build == 'true'
     runs-on: macos-15
     timeout-minutes: 45
     permissions:
@@ -44,6 +49,8 @@ jobs:
           category: "/language:swift"
 
   actions:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
     name: Analyze (actions)
     runs-on: ubuntu-latest
     timeout-minutes: 45

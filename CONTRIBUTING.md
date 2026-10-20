@@ -4,9 +4,9 @@
 
 1. Branch from `main`, named `type/short-name` like `fix/airdrop-tahoe`.
 2. Make the change, with tests for anything new in `BloomCore`.
-3. Run `scripts/check.sh`. It runs what CI will run for the files you changed.
+3. Run `scripts/check.sh`, fix failures and rerun affected checks after the final edit. Follow the validation and review policy in [AGENTS.md](AGENTS.md); record actual results and any unavailable checks in the PR. Routine documentation needs proofreading and diff checks rather than an application rebuild.
 4. Open a pull request using the template, titled as below.
-5. CI must be green. **CI result** and **E2E result** are the checks to require before merging: each passes when every job the change needed passed. CodeQL for Swift takes about ten minutes, so it runs on `main` after each merge and weekly; fix its findings in a follow-up pull request.
+5. CI must be green. **CI result** and **E2E result** are the checks to require before merging: each passes when every job the change needed passed. CodeQL for Swift takes about ten minutes, so it runs on substantive pushes to `main` and weekly; fix its findings in a follow-up pull request.
 6. The maintainer reviews and merges.
 
 ## Which tests run
@@ -15,12 +15,14 @@
 
 | Level | What runs | When the change touches |
 |---|---|---|
-| 0 | The pull request title check | Only documentation, issue forms or CodeQL |
-| 1 | Formatting, the no-network check, a warnings-as-errors build and the unit tests, on macOS 15 and 26 | Any Swift code, tests or scripts |
+| 0 | The pull request title check | Only routine documentation or issue forms |
+| 1 | Formatting, the no-network check, a warnings-as-errors build and the unit tests, on macOS 15 and 26 | Any Swift code, tests, scripts, agent rules, security policy or CI configuration |
 | 2 | The end-to-end journeys | Anything that ships in Bloom.app (the app, conversions, the petal catalog, document rendering, the bundle, the package), the E2E suite and the sample files, or any file no rule names |
 | 3 | The journeys and the petal matrix | No file: Mondays, runs started from the Actions tab, and the `run:matrix` label |
 
 The unit tests run every Convert and Tools petal on every sample in `Samples.all` through `Engine.run`, the same code a drop runs, and check each result opens as its type and the original is unchanged. That takes seconds, so a change that breaks a petal fails on its own pull request without the matrix. The journeys cover what only the app can show: drags, the flowers, the actions, the helper that renders documents inside Bloom.app, and ten drags in a row that must each open the flower on the first tap.
+
+Substantive requirements, rules, security guidance or executable-instruction changes inside otherwise routine documentation need the `run:journeys` label (or `run:matrix` when appropriate). Mixed PRs use the highest level needed. Codex automatic-review triggering is configured separately; `AGENTS.md` cannot prevent a review from starting.
 
 The **flower preview** also runs when a change touches how the flower or the menu bar icon looks or moves (`FlowerView`, `FlowerMotion`, `PetalLayout`, `MenuBarIcon`) or the preview itself. A change to the menu bar icon alone needs only the build, the unit tests and the preview.
 
