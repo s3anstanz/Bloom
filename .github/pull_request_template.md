@@ -4,7 +4,7 @@
 
 ## How it was tested
 
-<!-- Tests added or updated, and anything checked by hand on a Mac. -->
+<!-- List commands and results after the final edit, plus checks unavailable locally. For routine docs, report proofreading and diff checks; substantive app changes require macOS build/test verification. -->
 
 ## Screenshots or recording
 
@@ -13,6 +13,7 @@
 ## Checklist
 
 - [ ] New BloomCore behavior has tests
-- [ ] `scripts/format.sh` run
+- [ ] Relevant validation from AGENTS.md completed; unavailable checks explicitly reported
+- [ ] `full-ci` label added if documentation changes requirements, rules, security, or executable instructions
 - [ ] No network access or third-party packages added
 - [ ] README updated if a petal, key or setting changed

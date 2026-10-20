@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   push:
     branches: [main]
 
@@ -13,8 +14,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-test:
-    name: Build, test and package
+  changes:
+    uses: ./.github/workflows/change-scope.yml
+
+  macos:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
+    name: macOS build, test and package
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -56,3 +62,28 @@ jobs:
           path: build/Bloom.zip
           if-no-files-found: error
           retention-days: 14
+
+  build-test:
+    name: Build, test and package
+    needs: [changes, macos]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required checks
+        env:
+          SCOPE_RESULT: ${{ needs.changes.result }}
+          FULL: ${{ needs.changes.outputs.full }}
+          BUILD_RESULT: ${{ needs.macos.result }}
+        run: |
+          if [[ "$SCOPE_RESULT" != success ]]; then
+            echo "Change classification failed; CI cannot be skipped."
+            exit 1
+          fi
+          if [[ "$FULL" == false && "$BUILD_RESULT" == skipped ]]; then
+            echo "Routine documentation only: expensive checks skipped."
+          elif [[ "$FULL" == true && "$BUILD_RESULT" == success ]]; then
+            echo "Required macOS checks passed."
+          else
+            echo "Required checks did not complete successfully."
+            exit 1
+          fi

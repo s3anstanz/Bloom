@@ -2,6 +2,7 @@ name: CodeQL
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
   push:
     branches: [main]
   schedule:
@@ -11,7 +12,12 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    uses: ./.github/workflows/change-scope.yml
+
   analyze:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     name: Analyze (${{ matrix.language }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
