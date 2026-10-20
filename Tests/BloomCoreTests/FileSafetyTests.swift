@@ -61,8 +61,14 @@ final class FileSafetyTests: XCTestCase {
         let archive = folder.appendingPathComponent("broken.tar.gz")
         try Data("not an archive".utf8).write(to: archive)
 
-        let outputs = try? await Engine.apply(.extract, to: [archive])
-        XCTAssertNil(outputs, "Extracting a broken archive should fail")
+        do {
+            _ = try await Engine.apply(.extract, to: [archive])
+            XCTFail("Extracting a broken archive should fail")
+        } catch {
+            // The flower gets a plain sentence; the tool's own message is kept for a problem report.
+            XCTAssertEqual(error.localizedDescription, "broken.tar.gz: Couldn’t unpack this archive. It may be damaged.")
+            XCTAssertNotNil((error as? ConversionError)?.detail)
+        }
 
         XCTAssertEqual(try contents(), ["broken.tar.gz"])
     }

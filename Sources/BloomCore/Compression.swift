@@ -64,7 +64,7 @@ public enum CompressionLevel: CaseIterable {
         switch kind {
         case .image:
             guard let transparent else { return nil }
-            return ("\(maxPixelSize) px", "\(transparent ? "PNG" : "JPEG"), up to \(maxPixelSize) px")
+            return ("\(maxPixelSize) px", "\(transparent ? "PNG" : "JPG"), up to \(maxPixelSize) px")
         case .video:
             return ("\(videoHeight)p", "MP4, up to \(videoHeight)p")
         case .audio:

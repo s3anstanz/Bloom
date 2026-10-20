@@ -48,7 +48,8 @@ public enum ChoiceLayout {
     public static let spread = Double.pi / 6
     public static let innerRadius: CGFloat = 156
     public static let outerRadius: CGFloat = 222
-    public static let width: CGFloat = 58
+    /// The petal at its widest is about 0.84 of this, so a 54 pt label like "Balanced" fits inside it.
+    public static let width: CGFloat = 72
 
     /// Radians clockwise from 12 o'clock of choice `index` of `count`, around a petal pointing at `petalAngle`.
     public static func angle(of index: Int, count: Int, around petalAngle: Double) -> Double {

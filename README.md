@@ -1,12 +1,12 @@
 # Bloom
 
-**Do things to a file without opening anything.**
+**Convert, shrink or share a file without opening anything.**
 
-Drag a file, tap a key, and a flower of options blooms around your cursor. Drop the file on a petal and it's done: converted, shrunk, rotated, zipped or AirDropped. The result is saved in the same folder as the original.
+Drag a file, tap a key, and a flower of options blooms around your cursor. Drop the file on a petal and it's done: converted, shrunk, rotated, zipped or AirDropped.
 
 <p align="center"><img src="docs/images/bloom.gif" width="340" alt="Bloom's flower opening around the cursor"></p>
 
-No app to launch, no Export dialog, no website to upload to. Bloom lives in your menu bar, works on whatever you're already dragging, and never touches the network.
+No app to launch, no Export dialog, no website to upload to. Bloom lives in your menu bar, works on whatever you're already dragging, never touches the network and needs no Accessibility access.
 
 ## Three moves
 
@@ -32,7 +32,11 @@ Each key opens a different flower, and every petal on it works on the file you'r
   <img src="docs/images/actions.png" width="260" alt="The Actions flower with Copy Path lit under the dragged file">
 </p>
 
-Changed your mind mid-drag? Tap another key, or slide over the **⇧ Convert**, **⌘ Tools** and **⌃ Actions** tabs under the flower. Let go of the key whenever you like; the flower stays until you drop. To cancel, let go in the center. Let go away from the flower and it's an ordinary drop.
+Let go of the key whenever you like; the flower stays until you drop. Changed your mind mid-drag?
+
+- **Switch flowers:** tap another key, or slide over the **⇧ Convert**, **⌘ Tools** and **⌃ Actions** tabs under the flower.
+- **Cancel:** let go in the center.
+- **Drop as usual:** let go away from the flower.
 
 ## Things you'll do with it
 
@@ -58,7 +62,7 @@ git clone https://github.com/s3anstanz/Bloom.git ~/Bloom
 ~/Bloom/scripts/install.sh
 ```
 
-Bloom runs from the menu bar. Its flower icon opens while you drag a file, circles while Bloom works and fills its center when a result is saved. From that menu you can turn on **Launch at Login**. To get the latest version:
+Bloom runs from the menu bar. Its flower icon opens while you drag a file, circles while Bloom works and fills its center when a result is saved. From that menu you can turn on **Open at Login**. To get the latest version:
 
 ```bash
 ~/Bloom/scripts/update.sh
@@ -83,7 +87,7 @@ When several files are dragged together, the flowers offer what works on all of 
 
 | Tool | Works on |
 |---|---|
-| Compress | Rest on it and three sizes bloom past it: **Smaller**, **Balanced** and **Sharper**; dropping on Compress itself makes Balanced. Images → JPG up to 1600, 2400 or 3200 px, or PNG for images with transparency so it isn't filled in; video → MP4 up to 540p, 720p or 1080p; audio → AAC at 32, 64 or 96 kbps per channel. PDFs use macOS's Reduce File Size filter. A result that isn't smaller than the original isn't kept |
+| Compress | Images, video, audio and PDFs ([sizes below](#compress)) |
 | Half Size, Flip, Grayscale, No Meta (removes location and camera data) | Images |
 | Rotate | Images and PDFs |
 | Remove BG | Images, on macOS 14 or later |
@@ -92,6 +96,18 @@ When several files are dragged together, the flowers offer what works on all of 
 | Merge PDF | Two or more PDFs and/or images |
 | Extract | ZIP and TAR archives, including compressed tarballs (.tar.gz, .tgz, .tar.bz2, .tbz, .tar.xz, .txz) |
 | Zip | Anything, including folders, as long as everything dragged is in one folder |
+
+#### Compress
+
+Rest on Compress and three sizes bloom past it. Dropping on Compress itself makes Balanced.
+
+| | Smaller | Balanced | Sharper |
+|---|---|---|---|
+| Images → JPG, up to | 1600 px | 2400 px | 3200 px |
+| Video → MP4, up to | 540p | 720p | 1080p |
+| Audio → AAC, per channel | 32 kbps | 64 kbps | 96 kbps |
+
+Images with transparency stay PNG, so the see-through parts aren't filled in. PDFs have one size, from macOS's Reduce File Size filter. A result that isn't smaller than the original isn't kept.
 
 ### ⌃ Actions
 
@@ -112,7 +128,7 @@ When an action can't work on your Mac, such as AirDrop on a Mac without it, its 
 
 ## Permissions
 
-- macOS may ask once per folder (such as Desktop or Documents) to let Bloom save files there.
+- macOS may ask once per folder (Desktop, Documents or Downloads) before Bloom can use it, such as the first time you AirDrop a file from there.
 - Bloom watches mouse drags and modifier keys only; it needs no Accessibility or Input Monitoring access.
 
 ## Develop
@@ -135,7 +151,7 @@ When an action can't work on your Mac, such as AirDrop on a Mac without it, its 
 - `Sources/BloomFixtures`: generates the sample photos, PDFs, videos, audio, documents, subtitles and archives the tests and journeys use, and checks that a result opens as its type.
 - `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
 
-GitHub Actions tests every pull request on real Macs, choosing the tests from the files it touches: code is built and unit-tested on macOS 15 and macOS 26, with every petal run on every kind of file, and changes to the app play the end-to-end journeys. The petal matrix, which drops every kind of file on every petal through the app, plays every Monday and before each release. The finished `Bloom.app` is attached to the run, and pull requests that change how the flower looks or moves get a comment with a GIF of each moment of it. See [CONTRIBUTING.md](CONTRIBUTING.md).
+GitHub Actions tests every pull request on real Macs, running only the tests its files need. How CI chooses them, and how to release: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy and security
 

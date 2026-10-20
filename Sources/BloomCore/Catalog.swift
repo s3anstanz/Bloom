@@ -153,9 +153,9 @@ public enum Tool: CaseIterable {
     public var detail: String {
         switch self {
         case .compress: return "Make it smaller"
-        case .halfSize: return "Resize to 50%"
+        case .halfSize: return "Half the width and height"
         case .rotate: return "Rotate 90° clockwise"
-        case .flip: return "Flip horizontally"
+        case .flip: return "Mirror left to right"
         case .grayscale: return "Make it black and white"
         case .removeBackground: return "Cut out the subject"
         case .stripMetadata: return "Remove location and camera data"
@@ -163,7 +163,7 @@ public enum Tool: CaseIterable {
         case .splitPages: return "One PDF per page"
         case .mergePDF: return "Combine into one PDF"
         case .extract: return "Unpack into a folder"
-        case .zip: return "Compress into a .zip"
+        case .zip: return "Pack into a .zip"
         }
     }
 
@@ -233,7 +233,7 @@ public enum QuickAction: CaseIterable {
         case .float: return "Keep it floating on screen to drag later"
         case .copy: return "Copy the file, then paste it anywhere"
         case .move: return "Move to a folder you pick"
-        case .copyPath: return "Copy the full path"
+        case .copyPath: return "Copy where it lives, as text"
         case .terminal: return "Open its folder in Terminal"
         }
     }
@@ -392,11 +392,25 @@ public enum WheelCatalog {
         }
     }
 
+    /// What the format is good for, so the caption says more than the petal's name.
     private static func detail(for format: Format, kinds: [FileKind]) -> String {
         if kinds.allSatisfy({ $0 == .video }) {
-            if format == .m4a { return "Extract the audio as M4A" }
+            if format == .m4a { return "Just the soundtrack, as M4A" }
             if format == .gif { return "Make a GIF (first 60 seconds)" }
         }
-        return "Convert to \(format.title)"
+        if kinds.allSatisfy({ $0 == .pdf }) {
+            if format == .png || format == .jpg { return "One \(format.title) per page" }
+            if format == .txt { return "Pull out the text" }
+        }
+        switch format {
+        case .jpg: return "Small, and opens anywhere"
+        case .png: return "Sharp edges, keeps transparency"
+        case .heic: return "Often half the size of JPG"
+        case .webp, .avif: return "Light and fast for the web"
+        case .pdf: return "Ready to share or print"
+        case .mp4: return "Plays on almost anything"
+        case .docx: return "Opens in Word"
+        default: return "Convert to \(format.title)"
+        }
     }
 }

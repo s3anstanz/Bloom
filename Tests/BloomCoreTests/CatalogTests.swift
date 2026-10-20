@@ -25,7 +25,15 @@ final class CatalogTests: XCTestCase {
         let clip = try await Fixtures.video(in: folder)
         let items = await WheelCatalog.items(for: [clip], mode: .convert)
         XCTAssertEqual(items.map(\.title), ["MP4", "M4V", "GIF", "M4A"])
-        XCTAssertEqual(items.first { $0.title == "M4A" }?.detail, "Extract the audio as M4A")
+        XCTAssertEqual(items.first { $0.title == "M4A" }?.detail, "Just the soundtrack, as M4A")
+    }
+
+    func testConvertCaptionsSayWhatEachFormatIsFor() async {
+        let photo = await WheelCatalog.items(for: [URL(fileURLWithPath: "/tmp/photo.png")], mode: .convert)
+        XCTAssertEqual(photo.first { $0.title == "JPG" }?.detail, "Small, and opens anywhere")
+        XCTAssertEqual(photo.first { $0.title == "TIFF" }?.detail, "Convert to TIFF")
+        let report = await WheelCatalog.items(for: [URL(fileURLWithPath: "/tmp/report.pdf")], mode: .convert)
+        XCTAssertEqual(report.map(\.detail), ["One PNG per page", "One JPG per page", "Pull out the text"])
     }
 
     func testVideoWithoutSoundIsNotOfferedM4A() async throws {
@@ -114,10 +122,10 @@ final class CatalogTests: XCTestCase {
     func testCompressOpensThreeSizesThatSayWhatTheyMakeOfAPhoto() async throws {
         let found = await compress(["photo.png"])
         let item = try XCTUnwrap(found)
-        XCTAssertEqual(item.detail, "Compress to JPEG, up to 2400 px")
+        XCTAssertEqual(item.detail, "Compress to JPG, up to 2400 px")
         XCTAssertEqual(item.choices.map(\.title), ["Smaller", "Balanced", "Sharper"])
         XCTAssertEqual(item.choices.map(\.badge), ["1600 px", "2400 px", "3200 px"])
-        XCTAssertEqual(item.choices.map(\.detail), ["Compress to JPEG, up to 1600 px", item.detail, "Compress to JPEG, up to 3200 px"])
+        XCTAssertEqual(item.choices.map(\.detail), ["Compress to JPG, up to 1600 px", item.detail, "Compress to JPG, up to 3200 px"])
     }
 
     func testCompressSaysTransparentPicturesStayPNG() async throws {
@@ -129,7 +137,7 @@ final class CatalogTests: XCTestCase {
         XCTAssertEqual(clear?.detail, "Compress to PNG, up to 2400 px")
         XCTAssertEqual(clear?.choices.map(\.badge), ["1600 px", "2400 px", "3200 px"])
         let solid = await WheelCatalog.items(for: [opaque], mode: .tools).first { $0.title == "Compress" }
-        XCTAssertEqual(solid?.detail, "Compress to JPEG, up to 2400 px")
+        XCTAssertEqual(solid?.detail, "Compress to JPG, up to 2400 px")
         let both = await WheelCatalog.items(for: [transparent, opaque], mode: .tools).first { $0.title == "Compress" }
         XCTAssertEqual(both?.detail, "Compress at the Balanced size")
     }

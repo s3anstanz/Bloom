@@ -45,7 +45,7 @@ private struct StatusMenu: View {
         Text("⌘  Tools")
         Text("⌃  Actions")
         Divider()
-        Toggle("Launch at Login", isOn: $launchAtLogin)
+        Toggle("Open at Login", isOn: $launchAtLogin)
             .onChange(of: launchAtLogin) { enabled in
                 do {
                     if enabled {
