@@ -9,9 +9,12 @@ import Vision
 
 public struct ConversionError: LocalizedError {
     public let message: String
+    /// What a command-line tool said when it failed: too technical for the flower, kept for a problem report.
+    public let detail: String?
 
-    public init(_ message: String) {
+    public init(_ message: String, detail: String? = nil) {
         self.message = message
+        self.detail = detail
     }
 
     public var errorDescription: String? { message }
@@ -37,7 +40,8 @@ public enum Engine {
                 outputs.append(try await convertOne(file, to: format))
             } catch {
                 discard(outputs)
-                throw ConversionError("\(file.lastPathComponent): \(error.localizedDescription)")
+                throw ConversionError(
+                    "\(file.lastPathComponent): \(error.localizedDescription)", detail: (error as? ConversionError)?.detail)
             }
         }
         return outputs
@@ -58,7 +62,8 @@ public enum Engine {
                     outputs.append(try await applyOne(tool, to: file))
                 } catch {
                     discard(outputs)
-                    throw ConversionError("\(file.lastPathComponent): \(error.localizedDescription)")
+                    throw ConversionError(
+                        "\(file.lastPathComponent): \(error.localizedDescription)", detail: (error as? ConversionError)?.detail)
                 }
             }
             return outputs
@@ -79,7 +84,8 @@ public enum Engine {
                 }
             } catch {
                 discard(outputs)
-                throw ConversionError("\(file.lastPathComponent): \(error.localizedDescription)")
+                throw ConversionError(
+                    "\(file.lastPathComponent): \(error.localizedDescription)", detail: (error as? ConversionError)?.detail)
             }
         }
         guard !outputs.isEmpty else { throw AlreadySmall(level: level, files: files.count) }
@@ -160,7 +166,7 @@ public enum Engine {
     private static func pdfToImages(_ file: URL, format: Format) throws -> URL {
         guard let type = format.imageType else { throw ConversionError("\(format.title) isn’t an image format.") }
         guard let document = CGPDFDocument(file as CFURL), document.numberOfPages > 0 else {
-            throw ConversionError("Couldn’t open this PDF.")
+            throw ConversionError(unreadablePDF)
         }
         let pageCount = document.numberOfPages
         if pageCount == 1, let page = document.page(at: 1) {
@@ -263,7 +269,7 @@ public enum Engine {
         }
         let output = outputURL(for: file, ext: format.rawValue)
         do {
-            try await shell("/usr/bin/afconvert", settings + [file.path, output.path])
+            try await shell("/usr/bin/afconvert", settings + [file.path, output.path], failure: "Couldn’t convert this audio.")
         } catch {
             discard([output])
             throw error
@@ -278,7 +284,7 @@ public enum Engine {
             arguments += ["-format", "txt"]
         }
         do {
-            try await shell("/usr/bin/textutil", arguments + [file.path])
+            try await shell("/usr/bin/textutil", arguments + [file.path], failure: "Couldn’t convert this document.")
         } catch {
             discard([output])
             throw error
@@ -292,7 +298,7 @@ public enum Engine {
         let output = outputURL(for: file, ext: "pdf")
         do {
             if let helper = Bundle.main.url(forAuxiliaryExecutable: "BloomRender") {
-                try await shell(helper.path, [file.path, output.path])
+                try await shell(helper.path, [file.path, output.path], failure: "Couldn’t save the PDF.")
             } else {
                 try await DocumentRenderer.renderPDF(from: file, to: output)
             }
@@ -362,7 +368,7 @@ public enum Engine {
         case .stripMetadata:
             return try editImage(file, suffix: " (no metadata)") { $0 }
         case .removeBackground:
-            guard #available(macOS 14, *) else { throw ConversionError("Remove Background needs macOS 14 or later.") }
+            guard #available(macOS 14, *) else { throw ConversionError("Remove BG needs macOS 14 or later.") }
             return try removeBackground(file)
         case .mute:
             return try await mute(file)
@@ -388,7 +394,9 @@ public enum Engine {
             let requested = level.audioBitratePerChannel * CompressionLevel.channels(of: file)
             for bitrate in [requested] + CompressionLevel.aacBitrates.filter({ $0 < requested }) {
                 do {
-                    try await shell("/usr/bin/afconvert", aac + ["-b", String(bitrate), file.path, output.path])
+                    try await shell(
+                        "/usr/bin/afconvert", aac + ["-b", String(bitrate), file.path, output.path],
+                        failure: "Couldn’t compress this audio.")
                     return output
                 } catch {
                     discard([output])
@@ -396,7 +404,7 @@ public enum Engine {
             }
             // Its default bitrate always works.
             do {
-                try await shell("/usr/bin/afconvert", aac + [file.path, output.path])
+                try await shell("/usr/bin/afconvert", aac + [file.path, output.path], failure: "Couldn’t compress this audio.")
             } catch {
                 discard([output])
                 throw error
@@ -414,7 +422,7 @@ public enum Engine {
     }
 
     private static func compressPDF(_ file: URL) throws -> URL {
-        guard let document = PDFDocument(url: file) else { throw ConversionError("Couldn’t open this PDF.") }
+        guard let document = PDFDocument(url: file) else { throw ConversionError(unreadablePDF) }
         // Preview's own "Reduce File Size" Quartz filter; PDFKit accepts it under the "QuartzFilter" write option.
         let reduceFileSize: QuartzFilter? = QuartzFilter(url: URL(fileURLWithPath: "/System/Library/Filters/Reduce File Size.qfilter"))
         guard let filter = reduceFileSize else { throw ConversionError("macOS’s Reduce File Size filter is missing.") }
@@ -465,7 +473,7 @@ public enum Engine {
                 space: CGColorSpaceCreateDeviceGray(),
                 bitmapInfo: CGImageAlphaInfo.none.rawValue
             )
-        else { throw ConversionError("Couldn’t prepare the image.") }
+        else { throw ConversionError("Couldn’t edit this image.") }
         let rect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(rect)
@@ -480,7 +488,7 @@ public enum Engine {
         let handler = VNImageRequestHandler(cgImage: image, options: [:])
         try handler.perform([request])
         guard let observation = request.results?.first, !observation.allInstances.isEmpty else {
-            throw ConversionError("Couldn’t find a subject in this image.")
+            throw ConversionError("No clear subject to cut out. Try a photo with one main subject.")
         }
         let buffer = try observation.generateMaskedImage(
             ofInstances: observation.allInstances,
@@ -522,7 +530,7 @@ public enum Engine {
     }
 
     private static func rotatePDF(_ file: URL) throws -> URL {
-        guard let document = PDFDocument(url: file) else { throw ConversionError("Couldn’t open this PDF.") }
+        guard let document = PDFDocument(url: file) else { throw ConversionError(unreadablePDF) }
         for index in 0..<document.pageCount {
             if let page = document.page(at: index) {
                 page.rotation = (page.rotation + 90) % 360
@@ -538,7 +546,7 @@ public enum Engine {
 
     private static func splitPages(_ file: URL) throws -> URL {
         guard let document = PDFDocument(url: file), document.pageCount > 0 else {
-            throw ConversionError("Couldn’t open this PDF.")
+            throw ConversionError(unreadablePDF)
         }
         let folder = outputURL(for: file, ext: nil, suffix: " (pages)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
@@ -591,9 +599,9 @@ public enum Engine {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
         do {
             if file.pathExtension.lowercased() == "zip" {
-                try await shell("/usr/bin/ditto", ["-x", "-k", file.path, folder.path])
+                try await shell("/usr/bin/ditto", ["-x", "-k", file.path, folder.path], failure: unpackFailure)
             } else {
-                try await shell("/usr/bin/tar", ["-xf", file.path, "-C", folder.path])
+                try await shell("/usr/bin/tar", ["-xf", file.path, "-C", folder.path], failure: unpackFailure)
             }
         } catch {
             discard([folder])
@@ -607,7 +615,9 @@ public enum Engine {
         if files.count == 1 {
             let output = uniqueURL(in: folder, base: files[0].lastPathComponent, ext: "zip")
             do {
-                try await shell("/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", files[0].path, output.path])
+                try await shell(
+                    "/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", files[0].path, output.path],
+                    failure: "Couldn’t zip this.")
             } catch {
                 discard([output])
                 throw error
@@ -621,7 +631,9 @@ public enum Engine {
         // "./" keeps a name like "-m" from being read as zip's move-and-delete option; -nw stops zip expanding * and ? in names.
         let names = files.map { "./" + $0.lastPathComponent }
         do {
-            try await shell("/usr/bin/zip", ["-r", "-q", "-X", "-nw", output.lastPathComponent] + names, in: folder)
+            try await shell(
+                "/usr/bin/zip", ["-r", "-q", "-X", "-nw", output.lastPathComponent] + names, in: folder,
+                failure: "Couldn’t zip these files.")
         } catch {
             discard([output])
             throw error
@@ -687,7 +699,7 @@ public enum Engine {
                 space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
             )
-        else { throw ConversionError("Couldn’t prepare the image.") }
+        else { throw ConversionError("Couldn’t edit this image.") }
         let rect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
         context.setFillColor(CGColor(gray: 1, alpha: 1))
         context.fill(rect)
@@ -706,13 +718,13 @@ public enum Engine {
                 space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
             )
-        else { throw ConversionError("Couldn’t prepare the image.") }
+        else { throw ConversionError("Couldn’t edit this image.") }
         context.interpolationQuality = .high
         return context
     }
 
     private static func snapshot(_ context: CGContext) throws -> CGImage {
-        guard let image = context.makeImage() else { throw ConversionError("Couldn’t prepare the image.") }
+        guard let image = context.makeImage() else { throw ConversionError("Couldn’t edit this image.") }
         return image
     }
 
@@ -774,6 +786,9 @@ public enum Engine {
         )
     }
 
+    private static let unreadablePDF = "Couldn’t open this PDF. It may be damaged or locked."
+    private static let unpackFailure = "Couldn’t unpack this archive. It may be damaged."
+
     /// Finder-style naming: "photo.jpg", then "photo 2.jpg", "photo 3.jpg"…
     public static func uniqueURL(in folder: URL, base: String, ext: String?) -> URL {
         func candidate(_ name: String) -> URL {
@@ -789,7 +804,8 @@ public enum Engine {
         return url
     }
 
-    private static func shell(_ tool: String, _ arguments: [String], in directory: URL? = nil) async throws {
+    /// Runs `tool` and, if it fails, throws `failure` for the flower with the tool's own message as the detail.
+    private static func shell(_ tool: String, _ arguments: [String], in directory: URL? = nil, failure: String) async throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tool)
         process.arguments = arguments
@@ -810,8 +826,8 @@ public enum Engine {
                     return
                 }
                 let message = log.trimmingCharacters(in: .whitespacesAndNewlines)
-                let fallback = "\(URL(fileURLWithPath: tool).lastPathComponent) failed."
-                continuation.resume(throwing: ConversionError(message.isEmpty ? fallback : message))
+                let detail = message.isEmpty ? "\(URL(fileURLWithPath: tool).lastPathComponent) failed." : message
+                continuation.resume(throwing: ConversionError(failure, detail: detail))
             }
             do {
                 try process.run()

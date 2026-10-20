@@ -30,7 +30,7 @@ body:
     id: macos
     attributes:
       label: macOS version
-      description: Run `sw_vers -productVersion` in Terminal.
+      description: Apple menu › About This Mac. For example "15.4".
     validations:
       required: true
   - type: input

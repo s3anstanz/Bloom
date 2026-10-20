@@ -168,7 +168,10 @@ struct FlowerView: View {
         }
         if model.items.isEmpty {
             guard model.itemsLoaded else { return nil }
-            return model.mode == .convert ? "No conversions for this file" : "No tools for this file"
+            if model.fileCount > 1 {
+                return model.mode == .convert ? "No conversion works on all of these files" : "No tool works on all of these files"
+            }
+            return model.mode == .convert ? "Nothing to convert this to. Try ⌘ Tools or ⌃ Actions" : "No tools for this file. Try ⌃ Actions"
         }
         return nil
     }

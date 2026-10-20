@@ -40,7 +40,7 @@ enum QuickActions {
             return "AirDrop opened"
         case .float:
             FloatShelf.shared.show(files, near: NSEvent.mouseLocation)
-            return files.count == 1 ? "Floating. Drag it anywhere" : "Floating \(files.count) files"
+            return files.count == 1 ? "Floating. Drag it out when you’re ready" : "Floating \(files.count) files"
         case .copy:
             NSPasteboard.general.clearContents()
             NSPasteboard.general.writeObjects(files.map { $0 as NSURL })
