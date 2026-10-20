@@ -11,7 +11,7 @@
 # TEST_PLAN_SUMMARY set to a file, also writes a Markdown table of each changed file and the level it asks for.
 #
 # Levels:
-#   0  quick checks only: documentation, issue forms, CodeQL
+#   0  quick checks only: routine documentation and issue forms
 #   1  build and unit tests: any Swift code, tests or scripts. The unit tests run every Convert and Tools petal on
 #      every sample, so a change to how files are converted is tested here in seconds.
 #   2  end-to-end journeys: anything that ships in Bloom.app or plays the journeys
@@ -38,10 +38,12 @@ done
 # Prints a file's level, whether it changes the flower's look (preview or -), and why.
 classify() {
   case "$1" in
-    *.md | LICENSE | docs/* | .github/ISSUE_TEMPLATE/* | .github/dependabot.yml | .github/workflows/codeql.yml)
+    AGENTS.md | CLAUDE.md | RULES.md | SECURITY.md | CONTRIBUTING.md | */AGENTS.md | */CLAUDE.md | */RULES.md | */SECURITY.md | */CONTRIBUTING.md | rules/* | */rules/*)
+      echo "1 - agent rules, security and contributor policy" ;;
+    .github/dependabot.yml | .github/workflows/codeql.yml | .github/workflows/pr-title.yml | scripts/check-title.sh)
+      echo "1 - CI configuration and repository automation" ;;
+    *.md | LICENSE | docs/* | .github/ISSUE_TEMPLATE/*)
       echo "0 - documentation and repository settings" ;;
-    .github/workflows/pr-title.yml | scripts/check-title.sh)
-      echo "0 - pull request title check" ;;
     Sources/BloomCore/Engine.swift | Sources/BloomCore/Compression.swift | Sources/BloomCore/DocumentRenderer.swift)
       echo "2 - converts and processes files" ;;
     Sources/BloomCore/Catalog.swift)
@@ -89,8 +91,8 @@ if $all; then
 else
   # Committed changes, plus uncommitted and new files when run on a working copy.
   files="$({
-    git diff --name-only "$base"...HEAD
-    git diff --name-only HEAD
+    git diff --no-renames --name-only "$base"...HEAD
+    git diff --no-renames --name-only HEAD
     git ls-files --others --exclude-standard
   } | sort -u)"
   while IFS= read -r file; do

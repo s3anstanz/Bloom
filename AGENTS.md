@@ -17,7 +17,7 @@ These instructions apply to every agent working in this repository, including Cl
 
 ## Which tests run
 
-`scripts/test-plan.sh` picks the tests from the files a change touches, never from its title, and CI writes the plan at the top of each run's summary. Level 0 is the title check alone (documentation, issue forms); 1 adds the build and unit tests on macOS 15 and 26 (any code, tests or scripts), which run every Convert and Tools petal on every sample through `Engine.run`, the code a drop runs; 2 adds the end-to-end journeys (anything that ships in Bloom.app, the E2E suite, and any file no rule names). No file asks for the petal matrix: it plays on Mondays, on runs started from the Actions tab (before each release) and with the `run:matrix` label. The flower preview runs for changes to how the flower looks or moves. Pull requests play end-to-end tests on macOS 26; `main` plays on both, and Monday and hand-started runs play everything. The labels `run:journeys`, `run:matrix` and `preview` add a level. When you add a file, give it a rule in `scripts/test-plan.sh` if it needs less than the journeys. Details: `CONTRIBUTING.md`.
+`scripts/test-plan.sh` picks the tests from the files a change touches, never from its title, and CI writes the plan at the top of each run's summary. Level 0 is the title check alone (routine documentation, issue forms); 1 adds the build and unit tests on macOS 15 and 26 (any code, tests, scripts, agent rules, security policy or CI configuration), which run every Convert and Tools petal on every sample through `Engine.run`, the code a drop runs; 2 adds the end-to-end journeys (anything that ships in Bloom.app, the E2E suite, and any file no rule names). No file asks for the petal matrix: it plays on Mondays, on runs started from the Actions tab (before each release) and with the `run:matrix` label. The flower preview runs for changes to how the flower looks or moves. Pull requests play end-to-end tests on macOS 26; `main` plays on both, and Monday and hand-started runs play everything. The labels `run:journeys`, `run:matrix` and `preview` add a level. When you add a file, give it a rule in `scripts/test-plan.sh` if it needs less than the journeys. Details: `CONTRIBUTING.md`.
 
 ## Layout
 
@@ -31,7 +31,7 @@ These instructions apply to every agent working in this repository, including Cl
 
 ## Rules
 
-- Every change lands through a pull request titled `type(area): what changes` (types, areas and branch names: `CONTRIBUTING.md`); the maintainer merges. CI (format, offline guard, warnings-as-errors build, tests, CodeQL for workflow files) must pass. CodeQL for Swift runs on `main` after each merge and weekly; fix its findings in a follow-up pull request.
+- Every change lands through a pull request titled `type(area): what changes` (types, areas and branch names: `CONTRIBUTING.md`); the maintainer merges. CI (format, offline guard, warnings-as-errors build, tests, CodeQL for workflow files) must pass. CodeQL for Swift runs on substantive pushes to `main` and weekly; fix its findings in a follow-up pull request.
 - BloomCore never touches the network. Add no Swift packages.
 - New BloomCore behavior ships with tests that would fail if it broke. Assert results (files exist, open as their type, have the expected size or content), not implementation details.
 - A new way to drag, open, switch flowers or drop gets a journey in `Sources/BloomE2E` that fails if it breaks. A new kind of file gets a sample in `Samples.all` (`Sources/BloomFixtures/Samples.swift`), which the unit tests and the petal matrix both use.
@@ -40,6 +40,16 @@ These instructions apply to every agent working in this repository, including Cl
 - Never modify the original file; write results beside it with Finder-style unique names.
 - Report a Problem and Send Feedback open a GitHub issue form in the person's browser, filled in by `IssueReport`: the Bloom version and commit, macOS version and Mac chip, and for a failed petal the petal, file types and Bloom's message with file and folder names taken out. The person reads and submits it; the app sends nothing itself.
 - Keep the README's petal tables in sync with what the code offers.
+
+## Validation and review policy
+
+- Before opening a PR, inspect the complete diff, run `scripts/check.sh` for the relevant checks, fix failures, and rerun affected checks after the final edit. Record the commands and actual results in the PR; never claim an unrun check passed.
+- Code, features, tests, agent rules, CI, scripts, dependencies, configuration, security, and behavior changes warrant a second set of eyes, even when only one line changes. Mixed PRs follow the substantive-change policy.
+- Pure cosmetic copy and routine documentation changes need proofreading, relevant link/command checks, and `git diff --check`, rather than an application rebuild. Copy edits inside code or resources conservatively retain the checks selected by `scripts/test-plan.sh`.
+- Documentation that changes requirements, rules, security guidance, or executable instructions is substantive. Keep policy files covered by explicit test-plan rules; for substantive edits to otherwise routine documentation, use `run:journeys` (or `run:matrix` when appropriate) and the matching local `scripts/check.sh --e2e` checks. Labels add checks and never remove them.
+- Local verification complements independent CI for substantive changes. If macOS or a required tool is unavailable, state exactly which checks remain unrun and obtain the applicable macOS CI evidence before merging. Do not weaken assertions or bypass required checks.
+- Use the existing shared test planner and CI result/E2E result gates; do not add a competing classifier. Scheduled and hand-started comprehensive checks remain enabled.
+- `AGENTS.md` guides Codex review after it starts; it cannot suppress the automatic review trigger. Codex automatic-review settings remain separate. Do not request an additional manual review of a purely trivial PR unless asked.
 
 ## Review guidelines
 
