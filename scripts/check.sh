@@ -39,6 +39,6 @@ if needs journeys; then
   if $e2e; then
     scripts/e2e.sh build/e2e ${flags[@]+"${flags[@]}"}
   else
-    echo "These changes need the end-to-end tests ${flags[*]}. CI plays them; scripts/check.sh --e2e plays them here."
+    echo "These changes need the end-to-end tests${flags[*]+ ${flags[*]}}. CI plays them; scripts/check.sh --e2e plays them here."
   fi
 fi
