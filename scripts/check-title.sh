@@ -1,6 +1,6 @@
 #!/bin/bash
-# Checks a pull request title against Bloom's naming convention, `type(area): what changes`, and prints the labels
-# it implies. The area is optional; a `!` before the colon marks a breaking change.
+# Checks a pull request title against Bloom's naming convention, `type(area): what changes`. The area is optional;
+# a `!` before the colon marks a breaking change.
 # Usage: scripts/check-title.sh "<title>"
 set -euo pipefail
 
@@ -23,5 +23,3 @@ if [ -n "$area" ] && ! [[ " $areas " == *" $area "* ]]; then
   echo "“$area” isn't an area. Use one of: $areas, or leave it out." >&2
   exit 1
 fi
-echo "type: $type"
-if [ -n "$area" ]; then echo "area: $area"; fi
