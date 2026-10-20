@@ -2,6 +2,9 @@ name: Bug report
 description: Something in Bloom doesn't work the way it should.
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: "**Report a Problem…** in Bloom's menu fills in what it can. Nothing goes anywhere until you submit this form, and you can change any of it first."
   - type: textarea
     id: what-happened
     attributes:
@@ -14,14 +17,24 @@ body:
     attributes:
       label: File type
       description: For example "HEIC photo" or "MOV video from iPhone".
-  - type: input
-    id: macos
-    attributes:
-      label: macOS version
-      description: Run `sw_vers -productVersion` in Terminal.
-    validations:
-      required: true
   - type: textarea
     id: output
     attributes:
       label: Error message or screenshot
+  - type: input
+    id: bloom
+    attributes:
+      label: Bloom version
+      description: At the bottom of Bloom's menu.
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: Apple menu › About This Mac. For example "15.4".
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac
+      description: The chip, from Apple menu › About This Mac. For example "Apple M2".

@@ -13,13 +13,19 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>0.3.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>So AirDrop can send files from your Desktop. Bloom never uploads anything.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>So AirDrop can send files from Documents. Bloom never uploads anything.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>So AirDrop can send files from Downloads. Bloom never uploads anything.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

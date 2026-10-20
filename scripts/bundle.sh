@@ -9,11 +9,18 @@ APP="${2:-$ROOT/build/Bloom.app}"
 
 cd "$ROOT"
 swift build -c "$CONFIG" --product Bloom
+swift build -c "$CONFIG" --product BloomRender
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN_DIR/Bloom" "$APP/Contents/MacOS/Bloom"
+cp "$BIN_DIR/BloomRender" "$APP/Contents/MacOS/BloomRender"
 cp "$ROOT/Support/Info.plist" "$APP/Contents/Info.plist"
+# Report a Problem includes the commit, so a report says exactly which build it came from.
+if commit="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)"; then
+  /usr/libexec/PlistBuddy -c "Add :BloomCommit string $commit" "$APP/Contents/Info.plist"
+fi
+codesign --force --sign - "$APP/Contents/MacOS/BloomRender"
 codesign --force --sign - "$APP"
 echo "Built $APP"

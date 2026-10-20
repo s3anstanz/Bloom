@@ -1,0 +1,60 @@
+name: Preview
+
+# Renders the flower on pull requests that change how it looks or moves (scripts/test-plan.sh), and on any pull
+# request labelled `preview`: when it opens or the label is added, and on every push.
+on:
+  pull_request:
+    types: [opened, labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    # Pull requests from forks and Dependabot get a read-only token, which can't publish the preview.
+    if: >-
+      (github.event.action != 'labeled' || github.event.label.name == 'preview')
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    uses: ./.github/workflows/test-plan.yml
+
+  preview:
+    name: Flower preview
+    needs: plan
+    if: needs.plan.outputs.preview == 'true'
+    # At job level, so adding some other label doesn't cancel a preview that's rendering.
+    concurrency:
+      group: preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build Bloom.app
+        run: scripts/bundle.sh release build/Bloom.app
+
+      - name: Turn off Reduce Motion and Reduce Transparency
+        run: |
+          for key in reduceMotion reduceTransparency; do
+            echo "$key was $(defaults read com.apple.universalaccess "$key" 2>&1 || true)"
+            defaults write com.apple.universalaccess "$key" -bool false
+            echo "$key is $(defaults read com.apple.universalaccess "$key")"
+          done
+
+      - name: Render the flower
+        run: |
+          build/Bloom.app/Contents/MacOS/Bloom --preview "$RUNNER_TEMP/preview"
+          ls -l "$RUNNER_TEMP/preview"
+
+      - name: Publish the preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: .github/scripts/publish-images.sh preview "$RUNNER_TEMP/preview"
