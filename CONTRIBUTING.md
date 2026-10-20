@@ -44,7 +44,7 @@ To play them on your Mac, run `scripts/check.sh --e2e`, or `scripts/e2e.sh [--ma
 
 ## Commit and PR titles
 
-Pull request titles, and the commit each one squashes into, follow [Conventional Commits](https://www.conventionalcommits.org) as `type(area): what changes`, like `feat(convert): add a WebP petal` or `fix(actions): AirDrop opens on Tahoe`. The **PR title** check enforces it and labels the pull request `type: …` and `area: …`.
+Pull request titles, and the commit each one squashes into, follow [Conventional Commits](https://www.conventionalcommits.org) as `type(area): what changes`, like `feat(convert): add a WebP petal` or `fix(actions): AirDrop opens on Tahoe`. The **PR title** check enforces it.
 
 | Type | For | Release |
 |---|---|---|
