@@ -1,5 +1,7 @@
 # Bloom
 
+[![License: MIT](https://img.shields.io/github/license/s3anstanz/Bloom)](LICENSE)
+
 **Convert, shrink or share a file without opening anything.**
 
 Drag a file, tap a key, and a flower of options blooms around your cursor. Drop the file on a petal and it's done: converted, shrunk, rotated, zipped or AirDropped.
