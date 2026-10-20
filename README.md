@@ -11,7 +11,7 @@ No app to launch, no Export dialog, no website to upload to. Bloom lives in your
 ## Three moves
 
 1. **Drag** a file from Finder, the Desktop or anywhere else you can drag one.
-2. **Tap a key** while you're still dragging. A flower opens under your cursor.
+2. **Tap a key** once the file is moving. A flower opens under your cursor. Press the key after you start dragging, not before: ⌃ held while you click makes a right-click.
 3. **Drop it on a petal.** A ✓ and a pop, and the result is saved in the same folder as the original.
 
 <p align="center">

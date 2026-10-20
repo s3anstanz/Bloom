@@ -40,7 +40,7 @@ private struct StatusMenu: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
-        Text("While dragging a file, tap:")
+        Text("Start dragging a file, then tap:")
         Text("⇧  Convert")
         Text("⌘  Tools")
         Text("⌃  Actions")
