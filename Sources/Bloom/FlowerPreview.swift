@@ -108,6 +108,8 @@ final class FlowerPreview {
             result: "Can’t convert this file to \(first.title)."
         )
 
+        try await dimmedPetal()
+
         var letGo = Self.settled
         letGo.closed = 0
         try await film(Moment(name: "let-go", title: "Letting go"), from: -0.2, until: FlowerMotion.closeDuration + 0.1) { now in
@@ -137,6 +139,25 @@ final class FlowerPreview {
             stills.append((try await capture(), "On \(compress.choices[index].title)"))
         }
         try save(Moment(name: "choose-size", title: "Pointing at sizes"), stills, delay: 0.8)
+    }
+
+    /// The Actions flower on a Mac where AirDrop can't work: its petal stays dark and says why when pointed at.
+    private func dimmedPetal() async throws {
+        show(.actions, Self.settled)
+        model.clock = 0
+        model.items = model.items.map { item in
+            guard case .action(.airDrop) = item.operation else { return item }
+            var item = item
+            item.unavailable = QuickActions.airDropMissing
+            return item
+        }
+        var stills: [Still] = []
+        for index in [0, 1] where model.items.indices.contains(index) {
+            model.highlighted = index
+            try await pause(0.4)
+            stills.append((try await capture(), "On \(model.items[index].title)"))
+        }
+        try save(Moment(name: "unavailable", title: "A petal that can't work here"), stills, delay: 0.8)
     }
 
     /// The pointer rests on the first petal, the file drops on it at 0 s and the result comes back at 0.9 s.

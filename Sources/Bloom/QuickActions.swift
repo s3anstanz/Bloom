@@ -3,13 +3,24 @@ import BloomCore
 
 @MainActor
 enum QuickActions {
+    static let airDropMissing = "AirDrop isn’t available on this Mac"
+
+    /// Why `action` can't work on this Mac right now, or nil when it can. The flower dims its petal and shows this.
+    static func unavailability(of action: QuickAction, for files: [URL]) -> String? {
+        switch action {
+        // Only a Mac without AirDrop dims it. macOS refuses files in folders like the Desktop until the person allows
+        // Bloom in, and only a drop can ask them, so `run` handles those.
+        case .airDrop: return airDropService == nil ? airDropMissing : nil
+        case .terminal: return terminal == nil ? "Terminal isn’t installed" : nil
+        case .float, .copy, .move, .copyPath: return nil
+        }
+    }
+
     /// Returns the status line to show, or nil when the person cancelled.
     static func run(_ action: QuickAction, on files: [URL]) async throws -> String? {
         switch action {
         case .airDrop:
-            guard let service = NSSharingService(named: .sendViaAirDrop) else {
-                throw ConversionError("AirDrop isn’t available on this Mac.")
-            }
+            guard let service = airDropService else { throw ConversionError("\(airDropMissing).") }
             // AirDrop takes only files Bloom may read on its own, and it says yes if any one file passes, so check each.
             let refused = files.filter { !service.canPerform(withItems: [$0]) }
             if !refused.isEmpty {
@@ -19,7 +30,10 @@ enum QuickActions {
                     throw ConversionError(FolderAccess.deniedMessage(for: refusal.inDeniedFolders))
                 }
                 // Readable and still refused isn't a folder problem; AirDrop itself is off or unavailable.
-                guard refusal.otherwise.isEmpty else { throw ConversionError("AirDrop isn’t available on this Mac.") }
+                guard refusal.otherwise.isEmpty else {
+                    dragLog.notice("AirDrop: macOS can't send \(refusal.otherwise.count, privacy: .public) readable files")
+                    throw ConversionError("\(airDropMissing).")
+                }
             }
             NSApp.activate(ignoringOtherApps: true)
             service.perform(withItems: files)
@@ -38,15 +52,23 @@ enum QuickActions {
             NSPasteboard.general.setString(files.map(\.path).joined(separator: "\n"), forType: .string)
             return files.count == 1 ? "Path copied" : "\(files.count) paths copied"
         case .terminal:
-            guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else {
-                throw ConversionError("Terminal isn’t installed.")
-            }
+            guard let terminal else { throw ConversionError("Terminal isn’t installed.") }
             let isFolder = (try? files[0].resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true
             let folder = isFolder ? files[0] : files[0].deletingLastPathComponent()
             NSWorkspace.shared.open(
                 [folder], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration(), completionHandler: nil)
             return "Opened in Terminal"
         }
+    }
+
+    private static var terminal: URL? {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
+    }
+
+    private static var airDropService: NSSharingService? {
+        let service = NSSharingService(named: .sendViaAirDrop)
+        if service == nil { dragLog.notice("AirDrop: macOS has no AirDrop service for Bloom") }
+        return service
     }
 
     private static func move(_ files: [URL]) throws -> String? {

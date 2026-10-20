@@ -52,6 +52,10 @@ final class RadialController {
     private var tabTask: Task<Void, Never>?
     private var choiceTask: Task<Void, Never>?
     private var presentation = 0
+    /// The mouse button came up before the drop arrived, so the flower began folding first.
+    private var foldedBeforeDrop = false
+    /// The drag behind the flower is over: its drop arrived, or it left the flower after the button came up.
+    private var dragSessionOver = false
     private var motionRun = 0
     private lazy var panel: NSPanel = makePanel()
 
@@ -67,6 +71,8 @@ final class RadialController {
         let isNewDrag = !panel.isVisible || !model.isVisible || model.phase != .choosing || model.timeline.closed != nil
         if !isNewDrag, model.mode == mode, files == self.files { return }
         if isNewDrag {
+            foldedBeforeDrop = false
+            dragSessionOver = false
             tabTask?.cancel()
             model.hoveredTab = nil
         }
@@ -84,6 +90,7 @@ final class RadialController {
             ? NSWorkspace.shared.icon(forFile: files[0].path)
             : NSWorkspace.shared.icon(forFiles: files.map(\.path))
         if isNewDrag { place(at: NSEvent.mouseLocation) }
+        dragLog.notice("Flower \(isNewDrag ? "opened" : "switched", privacy: .public): \(String(describing: mode), privacy: .public)")
         var timeline = FlowerTimeline(entrance: isNewDrag ? .bloom : .turn, opened: Self.now)
         if !isNewDrag { timeline.glassOpened = model.timeline.glassOpened }
         model.timeline = timeline
@@ -95,7 +102,12 @@ final class RadialController {
         Task { @MainActor in
             let items = await WheelCatalog.items(for: files, mode: mode)
             guard current == self.presentation, self.model.phase == .choosing else { return }
-            self.model.items = items
+            self.model.items = items.map { item in
+                guard case .action(let action) = item.operation else { return item }
+                var item = item
+                item.unavailable = QuickActions.unavailability(of: action, for: files)
+                return item
+            }
             self.model.itemsLoaded = true
             self.model.timeline.petalsShown = Self.now
             self.animate()
@@ -105,9 +117,36 @@ final class RadialController {
     /// Letting go anywhere but on a petal folds the flower away.
     func dragEnded() {
         guard model.phase == .choosing, model.timeline.closed == nil else { return }
+        foldedBeforeDrop = true
+        dragLog.notice("Drag ended before a drop; folding the flower")
         model.timeline.closed = Self.now
         animate()
-        dismiss(after: FlowerMotion.closeDuration)
+        waitForLateDrop()
+    }
+
+    /// AppKit can deliver the drop well after the mouse button comes up, sometimes after the flower has folded away. Its
+    /// window stays, with nothing left to see, to catch that drop until the drag is over, or for a few seconds if AppKit
+    /// never says so.
+    private func waitForLateDrop() {
+        hideTask?.cancel()
+        tabTask?.cancel()
+        hideTask = Task { @MainActor in
+            let deadline = Self.now + FlowerMotion.closeDuration + 3
+            try? await Task.sleep(nanoseconds: UInt64(FlowerMotion.closeDuration * 1_000_000_000))
+            while !self.dragSessionOver, Self.now < deadline, !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+            guard !Task.isCancelled else { return }
+            self.dismiss(after: 0)
+        }
+    }
+
+    /// Called by the drop target when the drag ends or leaves it. Only counts once the button is up, since a drag can
+    /// leave the flower and come back while it's still down.
+    func dragSessionEnded() {
+        guard model.timeline.closed != nil, !dragSessionOver else { return }
+        dragSessionOver = true
+        dragLog.notice("Drag session over")
     }
 
     /// `offset` is the cursor position relative to the flower's center, y pointing up.
@@ -147,14 +186,22 @@ final class RadialController {
                 choiceTask?.cancel()
             }
         }
-        return index != nil
+        // A dimmed petal turns the drop down, so the pointer shows it won't land there.
+        return index.map { model.items[$0].unavailable == nil } ?? false
     }
 
     func performDrop() -> Bool {
         guard model.phase == .choosing,
             let index = model.highlighted,
-            model.items.indices.contains(index)
-        else { return false }
+            model.items.indices.contains(index),
+            model.items[index].unavailable == nil
+        else {
+            let state = "phase \(model.phase), petal \(model.highlighted.map(String.init) ?? "none") of \(model.items.count)"
+            dragLog.notice("Drop refused: \(state, privacy: .public)")
+            return false
+        }
+        let timing = foldedBeforeDrop ? " after the flower began folding" : ""
+        dragLog.notice("Drop on petal \(index, privacy: .public)\(timing, privacy: .public)")
         let choices = model.openChoices == index ? model.items[index].choices : []
         let choice = model.highlightedChoice.flatMap { choices.indices.contains($0) ? $0 : nil }
         let item = choice.map { choices[$0] } ?? model.items[index]
@@ -176,15 +223,8 @@ final class RadialController {
             do {
                 let message: String
                 switch item.operation {
-                case .convert(let format):
-                    let outputs = try await Engine.convert(files, to: format)
-                    message = Self.savedMessage(outputs)
-                case .tool(let tool):
-                    let outputs = try await Engine.apply(tool, to: files)
-                    message = Self.savedMessage(outputs)
-                case .compress(let level):
-                    let outputs = try await Engine.compress(files, level: level)
-                    message = Self.savedMessage(outputs)
+                case .convert, .tool, .compress:
+                    message = Self.savedMessage(try await Engine.run(item.operation, on: files) ?? [])
                 case .action(let action):
                     if action == .move { self.hideNow() }
                     guard let result = try await QuickActions.run(action, on: files) else {
@@ -325,6 +365,7 @@ final class RadialController {
             self.model.isVisible = false
             try? await Task.sleep(nanoseconds: 260_000_000)
             guard !Task.isCancelled else { return }
+            dragLog.notice("Flower hidden")
             self.panel.orderOut(nil)
             self.model.phase = .choosing
             self.model.highlighted = nil
@@ -396,7 +437,13 @@ final class DropTargetView: NSView {
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
+        dragLog.notice("Drag left the flower")
         controller?.hover(nil)
+        controller?.dragSessionEnded()
+    }
+
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        controller?.dragSessionEnded()
     }
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {

@@ -1,4 +1,5 @@
 import BloomCore
+import BloomFixtures
 import XCTest
 
 final class SubtitleTests: XCTestCase {

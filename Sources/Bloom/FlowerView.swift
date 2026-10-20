@@ -130,7 +130,8 @@ struct FlowerView: View {
                         count: model.items.count,
                         palette: palette,
                         motion: frame.petals.indices.contains(index) ? frame.petals[index] : FlowerFrame.Petal(),
-                        isHighlighted: model.highlighted == index
+                        isHighlighted: model.highlighted == index && item.unavailable == nil,
+                        isDimmed: item.unavailable != nil
                     )
                 }
                 if let parent = model.openChoices, !openChoices.isEmpty {
@@ -163,7 +164,7 @@ struct FlowerView: View {
             if model.openChoices == index, let choice = model.highlightedChoice, item.choices.indices.contains(choice) {
                 return item.choices[choice].detail
             }
-            return item.detail
+            return item.unavailable ?? item.detail
         }
         if model.items.isEmpty {
             guard model.itemsLoaded else { return nil }
@@ -221,7 +222,7 @@ private struct TabRow: View {
     }
 }
 
-/// One option. Its unfurling comes from `motion`; it lifts outward while pointed at.
+/// One option. Its unfurling comes from `motion`; it lifts outward while pointed at. A dimmed petal stays dark.
 private struct PetalView: View {
     let item: WheelItem
     let index: Int
@@ -229,6 +230,7 @@ private struct PetalView: View {
     let palette: PetalPalette
     let motion: FlowerFrame.Petal
     let isHighlighted: Bool
+    let isDimmed: Bool
 
     var body: some View {
         let slice = 2 * Double.pi / Double(count)
@@ -238,12 +240,13 @@ private struct PetalView: View {
         let petal = Petal(angle: angle, width: width, inner: RadialLayout.hubRadius - 2, outer: RadialLayout.ringRadius - 12)
         let labelRadius =
             RadialLayout.hubRadius - 2 + (RadialLayout.ringRadius - 10 - RadialLayout.hubRadius) * 0.55 - CGFloat(motion.labelInset)
-        let lit = isHighlighted ? 1 : motion.light
+        let lit = isDimmed ? 0 : isHighlighted ? 1 : motion.light
         let lift: CGFloat = isHighlighted ? 8 : 0
         ZStack {
             petal
                 .fill(palette.fill(lit: lit))
                 .shadow(color: palette.deep.opacity(0.7 * lit), radius: 14)
+                .opacity(isDimmed ? 0.45 : 1)
             petal
                 .stroke(Color.white.opacity(0.18 + 0.37 * lit), lineWidth: 1)
             VStack(spacing: 3) {
@@ -255,7 +258,7 @@ private struct PetalView: View {
                     .minimumScaleFactor(0.7)
             }
             .frame(width: 62)
-            .foregroundStyle(Color.white.opacity(0.9 + 0.1 * lit))
+            .foregroundStyle(Color.white.opacity(isDimmed ? 0.35 : 0.9 + 0.1 * lit))
             .shadow(color: Color.black.opacity(0.35), radius: 2, y: 1)
             .scaleEffect(isHighlighted ? 1.12 : 1)
             .opacity(motion.labelOpacity)
@@ -499,6 +502,8 @@ private struct CaptionPill: View {
             .padding(.vertical, 6)
             .background(Capsule().fill(Color.black.opacity(0.75)))
             .frame(maxWidth: 320)
+            // The end-to-end journeys read what Bloom says through Accessibility.
+            .accessibilityIdentifier("bloom.caption")
     }
 }
 

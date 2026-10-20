@@ -133,3 +133,29 @@ final class KeyTapsTests: XCTestCase {
         XCTAssertFalse(taps.isOpen)
     }
 }
+
+final class DragStartTests: XCTestCase {
+    func testADragThatBeginsAfterThePressIsNew() {
+        var start = DragStart(changeCount: 5)
+        start.pressed(changeCount: 5, late: 0.01)
+        XCTAssertTrue(start.began(changeCount: 6))
+    }
+
+    func testAPressHandledAfterItsDragBeganStillSeesThatDrag() {
+        var start = DragStart(changeCount: 5)
+        start.pressed(changeCount: 6, late: 0.4)
+        XCTAssertTrue(start.began(changeCount: 6))
+    }
+
+    func testAPressHandledOnTimeLeavesOutADragFromBeforeIt() {
+        var start = DragStart(changeCount: 5)
+        start.pressed(changeCount: 7, late: 0.01)
+        XCTAssertFalse(start.began(changeCount: 7))
+    }
+
+    func testEachDragBeginsOnce() {
+        var start = DragStart(changeCount: 5)
+        XCTAssertTrue(start.began(changeCount: 6))
+        XCTAssertFalse(start.began(changeCount: 6))
+    }
+}

@@ -2,7 +2,7 @@
 
 **Do things to a file without opening anything.**
 
-Drag a file, tap a key, and a flower of options blooms around your cursor. Drop the file on a petal and it's done: converted, shrunk, rotated, zipped or AirDropped. The result lands right next to the original.
+Drag a file, tap a key, and a flower of options blooms around your cursor. Drop the file on a petal and it's done: converted, shrunk, rotated, zipped or AirDropped. The result is saved in the same folder as the original.
 
 <p align="center"><img src="docs/images/bloom.gif" width="340" alt="Bloom's flower opening around the cursor"></p>
 
@@ -12,7 +12,7 @@ No app to launch, no Export dialog, no website to upload to. Bloom lives in your
 
 1. **Drag** a file from Finder, the Desktop or anywhere else you can drag one.
 2. **Tap a key** while you're still dragging. A flower opens under your cursor.
-3. **Drop it on a petal.** A ✓ and a pop, and the result sits next to the original.
+3. **Drop it on a petal.** A ✓ and a pop, and the result is saved in the same folder as the original.
 
 <p align="center">
   <img src="docs/images/convert.png" width="260" alt="Dragging photo.jpg onto the PNG petal of the Convert flower">
@@ -47,7 +47,7 @@ Changed your mind mid-drag? Tap another key, or slide over the **⇧ Convert**, 
 - Unpack a **.tar.gz**: ⌘, then Extract.
 - Keep a file **floating on screen** to drag into an email later: ⌃, then Float.
 
-Your original is never touched. Results get Finder-style names: `photo.jpg` becomes `photo.png` beside it, or `photo 2.png` if that name is taken.
+Your original is never touched. Results get Finder-style names: `photo.jpg` becomes `photo.png` in the same folder, or `photo 2.png` if that name is taken.
 
 ## Install
 
@@ -104,6 +104,8 @@ When several files are dragged together, the flowers offer what works on all of 
 | **Copy Path** | Copies the full path |
 | **Terminal** | Opens the file's folder in Terminal |
 
+When an action can't work on your Mac, such as AirDrop on a Mac without it, its petal is dimmed and says why.
+
 ## Feedback
 
 **Report a Problem…** and **Send Feedback…** in Bloom's menu open a GitHub issue in your browser, already filled in with your Bloom version, macOS version and Mac. After a drop fails, Report a Problem also fills in the petal, the file type and Bloom's error, never the file's name or folder. Read it, add what you like and submit it; nothing is sent before you do. You need a GitHub account.
@@ -122,19 +124,22 @@ When several files are dragged together, the flowers offer what works on all of 
 | Format the code | `scripts/format.sh` |
 | Check BloomCore stays offline | `scripts/check-no-network.sh` |
 | Render each moment of the flower as a GIF | `swift run Bloom --preview build/preview` |
+| Run what CI will run for your changes | `scripts/check.sh` |
 | Play the end-to-end journeys | `scripts/e2e.sh` |
+| Drop a sample of every kind of file on every petal | `scripts/e2e.sh --matrix` |
 
 - `Sources/BloomCore`: everything about files: which petals a file gets, every conversion and tool, key taps, petal hit-testing and what a problem report says.
 - `Sources/Bloom`: the menu-bar app, drag detection, the flower, Float cards and the Actions petals.
 - `Sources/BloomRender`: a helper bundled inside Bloom.app that renders documents to PDF, keeping the app responsive during long documents.
-- `Sources/BloomE2E`: end-to-end journeys that drag files out of Finder into the real app and check what it saves.
+- `Sources/BloomE2E`: end-to-end journeys that drag files out of Finder into the real app and check what it saves, and the petal matrix.
+- `Sources/BloomFixtures`: generates the sample photos, PDFs, videos, audio, documents, subtitles and archives the tests and journeys use, and checks that a result opens as its type.
 - `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
 
-Every pull request is built and tested on a Mac by GitHub Actions, the end-to-end journeys play on the real app, and the finished `Bloom.app` is attached to the run. Pull requests labelled `preview` also get a comment with a GIF of each moment of the flower. See [CONTRIBUTING.md](CONTRIBUTING.md).
+GitHub Actions tests every pull request on real Macs, choosing the tests from the files it touches: code is built and unit-tested on macOS 15 and macOS 26, with every petal run on every kind of file, and changes to the app play the end-to-end journeys. The petal matrix, which drops every kind of file on every petal through the app, plays every Monday and before each release. The finished `Bloom.app` is attached to the run, and pull requests that change how the flower looks or moves get a comment with a GIF of each moment of it. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy and security
 
-Bloom reads the files you drop on it and writes results beside them. It has no network code, no analytics and no third-party dependencies, and CI fails if networking code appears in BloomCore. Feedback goes through your browser, only when you submit it. To report a security problem, see [SECURITY.md](SECURITY.md).
+Bloom reads the files you drop on it and writes results to the same folder. It has no network code, no analytics and no third-party dependencies, and CI fails if networking code appears in BloomCore. Feedback goes through your browser, only when you submit it. Bloom notes what happens to each drag (the flower opening, a drop arriving or being refused) in your Mac's own log, never a file's name or folder; search Console for `com.westfalllabs.bloom` to read it. To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## License
 

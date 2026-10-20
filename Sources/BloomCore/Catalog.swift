@@ -269,6 +269,9 @@ public struct WheelItem: Identifiable {
     /// Petals that bloom past this one's tip when the pointer rests on it, like Compress's sizes. Only the first petal
     /// has them, so they open above the flower.
     public internal(set) var choices: [WheelItem] = []
+    /// Why the petal can't work on this Mac right now, like AirDrop when macOS won't send the file. The flower shows it
+    /// dimmed with this reason, and dropping on it does nothing.
+    public var unavailable: String?
 
     public var id: String { title }
 }
