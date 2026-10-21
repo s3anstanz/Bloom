@@ -9,6 +9,28 @@
 5. CI must be green. **CI result** and **E2E result** are the checks to require before merging: each passes when every job the change needed passed. CodeQL for Swift takes about ten minutes, so it runs on substantive pushes to `main` and weekly; fix its findings in a follow-up pull request.
 6. The maintainer reviews and merges.
 
+## Commands
+
+| Task | Command |
+|---|---|
+| Build, package and relaunch | `scripts/install.sh` |
+| Run the tests | `swift test` |
+| Format the code | `scripts/format.sh` |
+| Check BloomCore stays offline | `scripts/check-no-network.sh` |
+| Render each moment of the flower as a GIF | `swift run Bloom --preview build/preview` |
+| Run what CI will run for your changes | `scripts/check.sh` |
+| Play the end-to-end journeys | `scripts/e2e.sh` |
+| Drop a sample of every kind of file on every petal | `scripts/e2e.sh --matrix` |
+
+## Layout
+
+- `Sources/BloomCore`: everything about files: which petals a file gets, every conversion and tool, key taps, petal hit-testing and what a problem report says.
+- `Sources/Bloom`: the menu-bar app, drag detection, the flower, Float cards and the Actions petals.
+- `Sources/BloomRender`: a helper bundled inside Bloom.app that renders documents to PDF, keeping the app responsive during long documents.
+- `Sources/BloomE2E`: end-to-end journeys that drag files out of Finder into the real app and check what it saves, and the petal matrix.
+- `Sources/BloomFixtures`: generates the sample photos, PDFs, videos, audio, documents, subtitles and archives the tests and journeys use, and checks that a result opens as its type.
+- `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
+
 ## Which tests run
 
 `scripts/test-plan.sh` reads the files a change touches and picks the highest level any of them needs. Each level includes the ones above it, and the plan, with each file and the level it asked for, is at the top of every CI run's summary.
