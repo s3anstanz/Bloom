@@ -17,6 +17,8 @@ cd "$ROOT"
 scripts/bundle.sh release build/Bloom.app
 swift build -c release --product BloomE2E
 pkill -x Bloom || true
+# The first-launch card would sit over the journeys' flowers. Its own journeys clear this to bring it back.
+defaults write com.westfalllabs.bloom firstLaunchCardAnswered -bool true
 open -n build/Bloom.app
 trap 'pkill -x Bloom || true' EXIT
 "$(swift build -c release --show-bin-path)/BloomE2E" --out "$OUT" "$@"

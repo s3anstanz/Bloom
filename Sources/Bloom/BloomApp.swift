@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let watcher = DragWatcher(radial: RadialController())
         watcher.start()
         self.watcher = watcher
+        FieldGuidePanel.shared.introduceIfDue()
     }
 }
 
@@ -44,6 +45,7 @@ private struct StatusMenu: View {
         Text("⇧  Convert")
         Text("⌘  Tools")
         Text("⌃  Actions")
+        Button("What Can Bloom Do?") { FieldGuidePanel.shared.showGuide() }
         Divider()
         Toggle("Open at Login", isOn: $launchAtLogin)
             .onChange(of: launchAtLogin) { enabled in

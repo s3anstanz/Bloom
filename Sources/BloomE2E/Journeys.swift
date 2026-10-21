@@ -100,6 +100,52 @@ enum Journeys {
             try await session.cancelDrag()
             try await session.expectOnly(["photo.jpg"], after: 1)
         },
+        // Someone new finds Bloom under its icon, and Show Me opens the guide, which follows the pointer while Finder
+        // is in front. Once answered, the card never shows again.
+        Journey(name: "first-launch-show-me", title: "The first-launch card's Show Me opens the field guide, once") { session in
+            try await session.relaunchBloom(forgetting: [FirstLaunchCard.answeredKey])
+            try await session.openInFinder()
+            try await session.expectHelp("bloom.firstLaunchCard", "first-launch card")
+            try await session.click(help: "bloom.showMe")
+            try await session.expectHelp("bloom.fieldGuide", "field guide")
+            try await session.expectNoHelp("bloom.firstLaunchCard", for: 0.5)
+            try await session.click(help: "bloom.chip.\(FieldGuide.Kind.pdf.title)")
+            try await session.click(help: "bloom.tab.Tools")
+            let items = FieldGuide.items(for: .pdf, mode: .tools)
+            try await session.point(atGuidePetal: Tool.splitPages.title, of: items)
+            guard let split = items.first(where: { $0.title == Tool.splitPages.title }) else { throw Failure("A PDF has no Split petal.") }
+            try await session.expectGuideCaption(FieldGuide.caption(for: split))
+            try await session.click(help: "bloom.closeGuide")
+            try await session.expectNoHelp("bloom.fieldGuide", for: 1)
+            try await session.relaunchBloom()
+            try await session.expectNoHelp("bloom.firstLaunchCard", for: 5)
+        },
+        Journey(name: "first-launch-not-now", title: "The first-launch card's Not Now closes it for good") { session in
+            try await session.relaunchBloom(forgetting: [FirstLaunchCard.answeredKey])
+            try await session.openInFinder()
+            try await session.expectHelp("bloom.firstLaunchCard", "first-launch card")
+            try await session.click(help: "bloom.notNow")
+            try await session.expectNoHelp("bloom.firstLaunchCard", for: 1)
+            try await session.expectNoHelp("bloom.fieldGuide", for: 0.5)
+            try await session.relaunchBloom()
+            try await session.expectNoHelp("bloom.firstLaunchCard", for: 5)
+        },
+        Journey(name: "menu-opens-guide", title: "What Can Bloom Do? opens the field guide, which stays open through a drop") { session in
+            let photo = try session.image("photo.jpg")
+            try await session.openInFinder()
+            try await session.choose(menuItem: "What Can Bloom Do?")
+            try await session.expectHelp("bloom.fieldGuide", "field guide")
+            try await session.pickUp("photo.jpg")
+            try await session.tap(.shift)
+            try await session.point(at: Format.png.title, in: .convert, files: [photo])
+            try await session.drop()
+            let png = try await session.expectFile("photo.png")
+            try session.expectImage(png, type: .png, width: 1200, height: 800)
+            try await session.expectFlowerClosed()
+            try await session.expectHelp("bloom.fieldGuide", "still open")
+            try await session.click(help: "bloom.closeGuide")
+            try await session.expectNoHelp("bloom.fieldGuide", for: 1)
+        },
         Journey(name: "copy-path-holding-control", title: "⌃ Copy Path, holding ⌃ through the drop") { session in
             let photo = try session.image("photo.jpg")
             NSPasteboard.general.clearContents()

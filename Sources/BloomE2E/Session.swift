@@ -153,6 +153,7 @@ final class Session {
             for card in Self.floatCards() {
                 try await closeFloatCard(card)
             }
+            try await closeHelp()
             try await Self.waitUntil("the flower to close", timeout: 8) { Self.flowerWindow() == nil }
         } catch {
             print("  \(error.localizedDescription)")
@@ -1020,6 +1021,140 @@ final class Session {
     /// Float's cards: Bloom's windows about the size of `FloatCardView.size` in the app, below the menu bar.
     static func floatCards() -> [CGRect] {
         bloomWindows().filter { abs($0.width - 132) <= 8 && abs($0.height - 140) <= 8 && $0.minY > 40 }
+    }
+
+    // MARK: Help
+
+    /// Waits for Bloom to show the part of the first-launch card or field guide named `identifier`, takes a picture
+    /// of it, and returns where it is.
+    @discardableResult
+    func expectHelp(_ identifier: String, _ label: String? = nil, timeout: Double = 6) async throws -> CGRect {
+        let found = try await Self.waitFor("Bloom to show \(identifier)", timeout: timeout) {
+            Self.helpElement(identifier).flatMap(Self.frame)
+        }
+        if let label {
+            try await Self.pause(0.8)
+            flower =
+                Self.helpElement("bloom.firstLaunchCard").flatMap(Self.frame) ?? Self.helpElement("bloom.fieldGuide").flatMap(Self.frame)
+            try await screenshot(label)
+            flower = nil
+        }
+        return found
+    }
+
+    /// Fails if Bloom shows the part named `identifier` at any point in the next `seconds`.
+    func expectNoHelp(_ identifier: String, for seconds: Double) async throws {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if Self.helpElement(identifier) != nil {
+                try await screenshotOfScreen("\(identifier) showing")
+                throw Failure("Bloom showed \(identifier) when it shouldn’t.")
+            }
+            try await Self.pause(0.1)
+        }
+    }
+
+    /// Clicks the button named `identifier` on the card or in the guide, as a person would, with Finder in front.
+    func click(help identifier: String) async throws {
+        let button = try await expectHelp(identifier)
+        log("clicking \(identifier)")
+        try await click(at: CGPoint(x: button.midX, y: button.midY))
+    }
+
+    /// Moves the pointer, with no drag, onto the petal titled `title` in the guide's flower, which shows `items`.
+    func point(atGuidePetal title: String, of items: [WheelItem]) async throws {
+        guard let index = items.firstIndex(where: { $0.title == title }) else {
+            throw Failure("The guide's flower has no \(title) petal. It has \(items.map(\.title).joined(separator: ", ")).")
+        }
+        let flower = try await expectHelp("bloom.guideFlower")
+        let angle = 2 * Double.pi * Double(index) / Double(items.count)
+        log("moving to \(title) in the guide")
+        try await move(to: CGPoint(x: flower.midX + Layout.petalRadius * sin(angle), y: flower.midY - Layout.petalRadius * cos(angle)))
+        try await Self.pause(0.6)
+    }
+
+    /// Waits for the guide's caption to say `text`.
+    func expectGuideCaption(_ text: String) async throws {
+        func caption() -> String? {
+            Self.helpElement("bloom.guideCaption").flatMap { element in
+                [kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute].lazy.compactMap { Self.string(element, $0) }.first {
+                    !$0.isEmpty
+                }
+            }
+        }
+        do {
+            try await Self.waitUntil("the guide to say “\(text)”", timeout: 3) { caption() == text }
+        } catch {
+            throw Failure("The guide says “\(caption() ?? "nothing")”, not “\(text)”.")
+        }
+        _ = try await expectHelp("bloom.guideCaption", "says \(text)")
+    }
+
+    /// Opens Bloom's menu from its icon in the menu bar and clicks `title`.
+    func choose(menuItem title: String) async throws {
+        guard let bloom = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bloomID).first else {
+            throw Failure("Bloom isn’t running.")
+        }
+        let app = AXUIElementCreateApplication(bloom.processIdentifier)
+        guard let extras = Self.element(app, "AXExtrasMenuBar"),
+            let icon = Self.children(extras).first
+        else { throw Failure("Bloom has no icon in the menu bar.") }
+        if let box = Self.frame(icon), box.minY < 60, Self.screen.contains(CGPoint(x: box.midX, y: box.midY)) {
+            log("clicking Bloom's menu bar icon")
+            try await click(at: CGPoint(x: box.midX, y: box.midY))
+        }
+        if (try? await Self.waitUntil("Bloom's menu to open", timeout: 1.5, { Self.menuIsOpen(bloom) })) == nil {
+            // A crowded menu bar, as beside a camera notch, can hide the icon, so the menu is opened the way VoiceOver
+            // would. The press reports an error while the menu it opened is up, so only the menu showing counts.
+            log("opening Bloom's menu through Accessibility")
+            note = "Bloom's icon was hidden in the menu bar, so its menu was opened through Accessibility."
+            _ = AXUIElementPerformAction(icon, kAXPressAction as CFString)
+            try await Self.waitUntil("Bloom's menu to open", timeout: 3) { Self.menuIsOpen(bloom) }
+        }
+        // A closed menu's items are there too, with no size, so only one on screen counts.
+        let box = try await Self.waitFor("Bloom's menu to show \(title)", timeout: 3) { () -> CGRect? in
+            let item = Self.find(in: icon) {
+                Self.string($0, kAXTitleAttribute) == title && Self.string($0, kAXRoleAttribute) == kAXMenuItemRole
+            }
+            return item.flatMap(Self.frame).flatMap { $0.width > 0 && $0.height > 0 ? $0 : nil }
+        }
+        try await screenshotOfScreen("menu")
+        log("choosing \(title)")
+        try await click(at: CGPoint(x: box.midX, y: box.midY))
+    }
+
+    /// Whether one of Bloom's menus is on screen.
+    private static func menuIsOpen(_ bloom: NSRunningApplication) -> Bool {
+        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else { return false }
+        return windows.contains { window in
+            (window[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value == bloom.processIdentifier
+                && (window[kCGWindowLayer as String] as? NSNumber)?.intValue == Int(CGWindowLevelForKey(.popUpMenuWindow))
+        }
+    }
+
+    /// Closes the card or guide a failed journey left open, so it isn't in the next one's way.
+    private func closeHelp() async throws {
+        for identifier in ["bloom.notNow", "bloom.closeGuide"] where Self.helpElement(identifier) != nil {
+            try await click(help: identifier)
+        }
+    }
+
+    private static func helpElement(_ identifier: String) -> AXUIElement? {
+        guard let bloom = NSRunningApplication.runningApplications(withBundleIdentifier: bloomID).first else { return nil }
+        let app = AXUIElementCreateApplication(bloom.processIdentifier)
+        AXUIElementSetMessagingTimeout(app, 0.5)
+        // The flower's window is skipped: it never holds the card or the guide.
+        return elements(app, kAXWindowsAttribute).lazy.filter { frame($0)?.size != Layout.size }.compactMap { window in
+            find(in: window, where: { string($0, kAXIdentifierAttribute) == identifier })
+        }.first
+    }
+
+    private static func element(_ element: AXUIElement, _ attribute: String) -> AXUIElement? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success, let value,
+            CFGetTypeID(value) == AXUIElementGetTypeID()
+        else { return nil }
+        return (value as! AXUIElement)
     }
 
     // MARK: Screenshots
