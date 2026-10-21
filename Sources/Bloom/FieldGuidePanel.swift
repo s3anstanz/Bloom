@@ -60,8 +60,9 @@ final class FieldGuidePanel {
         }
     }
 
+    /// Opening the guide answers the card, even one still waiting for the menu bar icon, so it never replaces the guide.
     func showGuide() {
-        if isShowing(.card) { card.answered() }
+        card.answered()
         present(.guide)
     }
 
