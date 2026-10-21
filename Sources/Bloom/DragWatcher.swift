@@ -1,7 +1,8 @@
 import AppKit
 import BloomCore
 
-/// Watches for file drags anywhere on screen and opens the flower when ⇧, ⌘ or ⌃ is tapped mid-drag.
+/// Watches for file drags anywhere on screen and opens the flower when ⇧, ⌘ or ⌃ is tapped mid-drag. Until someone has
+/// opened a flower, a drag that pauses without a key shows them the keys beside the pointer.
 @MainActor
 final class DragWatcher: NSObject {
     private let radial: RadialController
@@ -9,6 +10,8 @@ final class DragWatcher: NSObject {
     private var dragStart = DragStart(changeCount: 0)
     private var files: [URL] = []
     private var taps = KeyTaps(heldAtDragStart: [])
+    private var hint = KeyHint()
+    private let hintPanel = KeyHintPanel()
     private var timer: Timer?
 
     init(radial: RadialController) {
@@ -48,6 +51,7 @@ final class DragWatcher: NSObject {
         files = urls
         dragLog.notice("Drag started with \(urls.count, privacy: .public) files")
         taps = KeyTaps(heldAtDragStart: Self.heldKeys())
+        hint.dragStarted(at: ProcessInfo.processInfo.systemUptime)
         MenuBarIcon.shared.dragStarted()
         let timer = Timer(timeInterval: 1.0 / 60.0, target: self, selector: #selector(tick), userInfo: nil, repeats: true)
         RunLoop.main.add(timer, forMode: .common)
@@ -61,8 +65,10 @@ final class DragWatcher: NSObject {
             return
         }
         if let mode = taps.update(held: Self.heldKeys()) {
+            hint.flowerOpened()
             radial.present(mode: mode, files: files)
         }
+        hintPanel.update(showing: hint.isShowing(at: ProcessInfo.processInfo.systemUptime), pointer: NSEvent.mouseLocation)
     }
 
     private func finish() {
@@ -70,6 +76,8 @@ final class DragWatcher: NSObject {
         timer = nil
         dragLog.notice("Mouse button up; flower open: \(self.taps.isOpen, privacy: .public)")
         if taps.isOpen { radial.dragEnded() }
+        hint.dragEnded()
+        hintPanel.update(showing: false, pointer: NSEvent.mouseLocation)
         MenuBarIcon.shared.dragEnded()
         taps = KeyTaps(heldAtDragStart: [])
     }

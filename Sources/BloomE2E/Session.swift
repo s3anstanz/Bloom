@@ -37,6 +37,8 @@ final class Session {
         static let choiceRadius = Double(ChoiceLayout.innerRadius + ChoiceLayout.outerRadius) / 2
         static let tabsDrop = 182.0
         static let tabWidth = 96.0
+        /// The key hint's window beside the pointer, matching `KeyHintLayout` in the app.
+        static let keyHintSize = CGSize(width: 124, height: 122)
         /// Clear of the label inside each tab: where the open flower's tab shows its colour.
         static let tabSampleInset = 30.0
         /// The open flower's tab is filled with its deep petal colour (`PetalPalette` in the app); the others show the
@@ -78,6 +80,9 @@ final class Session {
     private(set) var draggedTwice = false
     /// The files the current drag holds, so a drag can pick them up again.
     private var holding: [String] = []
+    /// The first file's icon and name in Finder, relative to where the drag picked it up. Finder drags them along at
+    /// that offset from the pointer.
+    private var carried: CGRect?
 
     init(journey: String, output: URL) {
         name = journey
@@ -102,14 +107,21 @@ final class Session {
         try await pause(1)
     }
 
-    /// Quits Bloom and opens it again, so the journey's drag is the first one Bloom sees.
-    func relaunchBloom() async throws {
+    /// Quits Bloom and opens it again, so the journey's drag is the first one Bloom sees. `forgetting` names settings
+    /// to clear while it's closed, so Bloom opens as it would for someone new.
+    func relaunchBloom(forgetting settings: [String] = []) async throws {
         guard let bloom = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bloomID).first,
             let app = bloom.bundleURL
         else { throw Failure("Bloom isn’t running.") }
         log("relaunching Bloom")
         bloom.forceTerminate()
         try await Self.waitUntil("Bloom to quit", timeout: 10) { bloom.isTerminated }
+        for setting in settings {
+            CFPreferencesSetAppValue(setting as CFString, nil, Self.bloomID as CFString)
+        }
+        if !settings.isEmpty, !CFPreferencesAppSynchronize(Self.bloomID as CFString) {
+            throw Failure("Bloom’s settings couldn’t be cleared.")
+        }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.createsNewApplicationInstance = true
         _ = try await NSWorkspace.shared.openApplication(at: app, configuration: configuration)
@@ -236,6 +248,7 @@ final class Session {
             }
             let icon = try await iconCenter(first)
             pickup = icon
+            carried = iconAndName(first)?.offsetBy(dx: -icon.x, dy: -icon.y)
             log("picking up \(fileNames.joined(separator: ", ")) at \(Int(icon.x)), \(Int(icon.y))")
             if try await drag(from: icon, carrying: fileNames) { return }
             guard attempt == 1 else { break }
@@ -254,6 +267,7 @@ final class Session {
     private func drag(from icon: CGPoint, carrying fileNames: [String]) async throws -> Bool {
         let pasteboard = NSPasteboard(name: .drag)
         let before = pasteboard.changeCount
+        try await expectFinder(at: icon)
         post(.mouseMoved, at: icon)
         try await Self.pause(0.3)
         post(.leftMouseDown, at: icon)
@@ -273,6 +287,30 @@ final class Session {
             return false
         }
         return true
+    }
+
+    /// Makes sure a press at `point` lands on Finder, bringing Finder forward once if another app's window is in the
+    /// way, so a journey never clicks or drops into whatever else is open on the Mac.
+    private func expectFinder(at point: CGPoint) async throws {
+        func owner() -> pid_t? {
+            var element: AXUIElement?
+            guard AXUIElementCopyElementAtPosition(AXUIElementCreateSystemWide(), Float(point.x), Float(point.y), &element) == .success,
+                let element
+            else { return nil }
+            var pid: pid_t = 0
+            return AXUIElementGetPid(element, &pid) == .success ? pid : nil
+        }
+        guard let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first else {
+            throw Failure("Finder isn’t running.")
+        }
+        if owner() == finder.processIdentifier { return }
+        log("another app is over Finder, so bringing Finder forward")
+        finder.activate()
+        try await Self.pause(0.8)
+        guard owner() == finder.processIdentifier else {
+            let other = owner().flatMap { NSRunningApplication(processIdentifier: $0)?.localizedName } ?? "Another app"
+            throw Failure("\(other) is in front of Finder where the journey picks up its file, so nothing was pressed.")
+        }
     }
 
     /// Where Finder shows the window for `folder`, through the Accessibility API.
@@ -331,6 +369,31 @@ final class Session {
             }
             throw error
         }
+    }
+
+    /// The frame around `fileName`'s icon and its name in the journey's Finder window.
+    private func iconAndName(_ fileName: String) -> CGRect? {
+        let names = [fileName, (fileName as NSString).deletingPathExtension]
+        guard let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first else { return nil }
+        let windows = Self.elements(AXUIElementCreateApplication(finder.processIdentifier), kAXWindowsAttribute)
+        guard let window = windows.first(where: { Self.string($0, kAXTitleAttribute) == folder.lastPathComponent }) else { return nil }
+        let parts = Self.labelled(in: window, names: names, depth: 0)
+        return parts.dropFirst().reduce(parts.first) { $0?.union($1) }
+    }
+
+    /// The frames of the images and texts labelled one of `names`.
+    private static func labelled(in element: AXUIElement, names: [String], depth: Int) -> [CGRect] {
+        let labels = [kAXTitleAttribute, kAXDescriptionAttribute, kAXValueAttribute, kAXFilenameAttribute].compactMap {
+            string(element, $0)
+        }
+        var found: [CGRect] = []
+        if labels.contains(where: { names.contains($0) }), let box = frame(element),
+            [kAXImageRole, kAXTextFieldRole, kAXStaticTextRole].contains(string(element, kAXRoleAttribute) ?? "")
+        {
+            found.append(box)
+        }
+        guard depth < 14 else { return found }
+        return found + children(element).flatMap { labelled(in: $0, names: names, depth: depth + 1) }
     }
 
     /// The center of the icon named one of `names`. Finder labels the icon itself or only the text under it,
@@ -747,8 +810,36 @@ final class Session {
         }
     }
 
-    func expectFlowerClosed() async throws {
-        try await Self.waitUntil("the flower to close", timeout: 3) { Self.flowerWindow() == nil }
+    /// Letting go outside the flower keeps its empty window a few seconds for a late drop, so that wait needs longer.
+    func expectFlowerClosed(timeout: Double = 3) async throws {
+        try await Self.waitUntil("the flower to close", timeout: timeout) { Self.flowerWindow() == nil }
+    }
+
+    /// Waits for the key hint to show beside the pointer, clear of the pointer and of the file and name it drags.
+    func expectKeyHint(timeout: Double = 3) async throws {
+        let hint = try await Self.waitFor("the key hint to show", timeout: timeout) { Self.bloomWindows(sized: Layout.keyHintSize).first }
+        try await Self.pause(0.4)
+        try await screenshot("key hint")
+        let reach = hint.insetBy(dx: -60, dy: -60)
+        guard reach.contains(cursor), !hint.insetBy(dx: -4, dy: -4).contains(cursor) else {
+            throw Failure("The key hint is at \(hint), not beside the pointer at \(cursor).")
+        }
+        if let carried {
+            let file = carried.offsetBy(dx: cursor.x, dy: cursor.y)
+            guard !hint.intersects(file) else { throw Failure("The key hint at \(hint) covers the dragged file and its name at \(file).") }
+        }
+    }
+
+    /// Fails if the key hint shows at any point in the next `seconds`.
+    func expectNoKeyHint(for seconds: Double) async throws {
+        let deadline = Date().addingTimeInterval(seconds)
+        while Date() < deadline {
+            if !Self.bloomWindows(sized: Layout.keyHintSize).isEmpty {
+                try await screenshot("key hint showing")
+                throw Failure("The key hint showed when it shouldn’t.")
+            }
+            try await Self.pause(0.1)
+        }
     }
 
     // MARK: Reading Bloom
