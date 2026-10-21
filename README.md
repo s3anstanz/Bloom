@@ -135,25 +135,7 @@ When an action can't work on your Mac, such as AirDrop on a Mac without it, its 
 
 ## Develop
 
-| Task | Command |
-|---|---|
-| Build, package and relaunch | `scripts/install.sh` |
-| Run the tests | `swift test` |
-| Format the code | `scripts/format.sh` |
-| Check BloomCore stays offline | `scripts/check-no-network.sh` |
-| Render each moment of the flower as a GIF | `swift run Bloom --preview build/preview` |
-| Run what CI will run for your changes | `scripts/check.sh` |
-| Play the end-to-end journeys | `scripts/e2e.sh` |
-| Drop a sample of every kind of file on every petal | `scripts/e2e.sh --matrix` |
-
-- `Sources/BloomCore`: everything about files: which petals a file gets, every conversion and tool, key taps, petal hit-testing and what a problem report says.
-- `Sources/Bloom`: the menu-bar app, drag detection, the flower, Float cards and the Actions petals.
-- `Sources/BloomRender`: a helper bundled inside Bloom.app that renders documents to PDF, keeping the app responsive during long documents.
-- `Sources/BloomE2E`: end-to-end journeys that drag files out of Finder into the real app and check what it saves, and the petal matrix.
-- `Sources/BloomFixtures`: generates the sample photos, PDFs, videos, audio, documents, subtitles and archives the tests and journeys use, and checks that a result opens as its type.
-- `Tests/BloomCoreTests`: runs every petal on generated sample files and checks each result opens, plus catalog, naming, subtitle, key-tap and petal-geometry tests.
-
-GitHub Actions tests every pull request on real Macs, running only the tests its files need. How CI chooses them, and how to release: [CONTRIBUTING.md](CONTRIBUTING.md).
+Build and relaunch with `scripts/install.sh`, and test with `swift test`. Every command, the layout of the code, which tests CI runs and how to release: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy and security
 
