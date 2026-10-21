@@ -78,6 +78,28 @@ enum Journeys {
             let half = try await session.expectFile("photo (50%).jpg")
             try session.expectImage(half, type: .jpeg, width: 600, height: 400)
         },
+        // Someone new who pauses mid-drag sees the keys, and once a key opens a flower the hint is gone for good.
+        Journey(name: "key-hint", title: "A paused first drag shows the keys, until a flower has opened") { session in
+            let photo = try session.image("photo.jpg")
+            try await session.relaunchBloom(forgetting: [KeyHint.retiredKey])
+            try await session.openInFinder()
+            try await session.pickUp("photo.jpg")
+            try await session.expectKeyHint()
+            // Letting go without a key hides it, but the next paused drag still shows it.
+            try await session.cancelDrag()
+            try await session.expectNoKeyHint(for: 0.5)
+            try await session.pickUp("photo.jpg")
+            try await session.expectKeyHint()
+            try await session.tap(.shift)
+            try await session.point(at: Format.png.title, in: .convert, files: [photo])
+            try await session.expectNoKeyHint(for: 0.5)
+            try await session.cancelDrag()
+            try await session.expectFlowerClosed(timeout: FlowerMotion.closeDuration + 4)
+            try await session.pickUp("photo.jpg")
+            try await session.expectNoKeyHint(for: KeyHint.delay + 1.5)
+            try await session.cancelDrag()
+            try await session.expectOnly(["photo.jpg"], after: 1)
+        },
         Journey(name: "copy-path-holding-control", title: "⌃ Copy Path, holding ⌃ through the drop") { session in
             let photo = try session.image("photo.jpg")
             NSPasteboard.general.clearContents()
