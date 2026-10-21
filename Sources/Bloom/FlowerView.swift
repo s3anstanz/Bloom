@@ -41,6 +41,11 @@ struct PetalPalette {
 
 struct FlowerView: View {
     @ObservedObject var model: RadialModel
+    /// Off in the field guide, which draws its own clickable tabs and caption around the flower.
+    var showsTabsAndCaption = true
+    /// Off in the field guide, which sits on glass of its own: the disc is tinted glass there, since a frosted disc
+    /// would show the desktop behind the guide.
+    var frostsBehind = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var anchor: UnitPoint {
@@ -81,13 +86,13 @@ struct FlowerView: View {
             flower(palette, frame)
                 .frame(width: RadialLayout.ringRadius * 2, height: RadialLayout.ringRadius * 2)
                 .position(RadialLayout.ringCenter)
-            if model.phase == .choosing {
+            if model.phase == .choosing, showsTabsAndCaption {
                 TabRow(current: model.mode, hovered: model.hoveredTab)
                     .opacity(frame.tabsOpacity)
                     .offset(y: frame.tabsOffset)
                     .position(x: RadialLayout.ringCenter.x, y: RadialLayout.ringCenter.y + RadialLayout.tabsDrop)
             }
-            if let caption {
+            if let caption, showsTabsAndCaption {
                 CaptionPill(text: caption)
                     .position(x: RadialLayout.ringCenter.x, y: captionY)
             }
@@ -116,7 +121,20 @@ struct FlowerView: View {
                     .fill(Color.black.opacity(0.35))
                     .blur(radius: 16)
                     .offset(y: 8)
-                FrostedDisc()
+                if frostsBehind {
+                    FrostedDisc()
+                } else {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [palette.deep.opacity(0.32), Color(red: 14 / 255, green: 16 / 255, blue: 26 / 255).opacity(0.32)],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: RadialLayout.ringRadius * 0.7
+                            )
+                        )
+                        .overlay(Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
+                }
                 Glint(offset: frame.glintOffset, diameter: diameter)
                     .opacity(frame.glintOpacity)
             }

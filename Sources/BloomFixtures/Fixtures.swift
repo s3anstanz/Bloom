@@ -126,7 +126,8 @@ public enum Fixtures {
         return url
     }
 
-    /// A 440 Hz tone as 16-bit WAV, or white noise, which an encoder can't squeeze below the bitrate it's given.
+    /// A 440 Hz tone as 16-bit WAV, or white noise, which an encoder can't squeeze below the bitrate it's given. A
+    /// `name` ending in .m4a makes AAC, as Music saves songs.
     public static func audio(
         in folder: URL,
         name: String = "tone.wav",
@@ -136,7 +137,8 @@ public enum Fixtures {
         noise: Bool = false
     ) throws -> URL {
         let url = folder.appendingPathComponent(name)
-        let settings: [String: Any] = [
+        let aac: [String: Any] = [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: sampleRate, AVNumberOfChannelsKey: channels]
+        let pcm: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: sampleRate,
             AVNumberOfChannelsKey: channels,
@@ -145,6 +147,7 @@ public enum Fixtures {
             AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsNonInterleaved: false,
         ]
+        let settings = url.pathExtension.lowercased() == "m4a" ? aac : pcm
         // AVAudioFile finishes the file only when it is deallocated, so drain it before anything reads the file.
         try autoreleasepool {
             let file = try AVAudioFile(forWriting: url, settings: settings)

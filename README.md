@@ -64,7 +64,7 @@ git clone https://github.com/s3anstanz/Bloom.git ~/Bloom
 ~/Bloom/scripts/install.sh
 ```
 
-Bloom runs from the menu bar. Its flower icon opens while you drag a file, circles while Bloom works and fills its center when a result is saved. From that menu you can turn on **Open at Login**. To get the latest version:
+Bloom runs from the menu bar. Its flower icon opens while you drag a file, circles while Bloom works and fills its center when a result is saved. From that menu you can turn on **Open at Login**. **What Can Bloom Do?** in the same menu opens a field guide under the icon: pick a kind of file and a key to see that file's real flower, and point at a petal to read what it does. Nothing in the guide runs, and it stays open while you drag a file to try it. On first launch, a card under the icon offers the guide once. To get the latest version:
 
 ```bash
 ~/Bloom/scripts/update.sh

@@ -277,13 +277,40 @@ public struct WheelItem: Identifiable {
 }
 
 public enum WheelCatalog {
+    /// What the petals depend on beyond the kinds of file, read from the files themselves.
+    struct Facts {
+        /// Every video has a soundtrack, so it can become M4A.
+        var videosHaveAudio = true
+        /// The channel count every audio file compresses to, or nil when they differ or aren't all audio.
+        var audioChannels: Int?
+        /// Whether every image shows through somewhere, or nil when they differ or aren't all images.
+        var transparent: Bool?
+    }
+
     /// The petals a flower offers for the dragged files: only what can actually work on all of them.
     public static func items(for files: [URL], mode: Mode) async -> [WheelItem] {
+        let kinds = files.map(FileKind.init)
+        var facts = Facts()
+        switch mode {
+        case .convert:
+            if formats(for: kinds).contains(.m4a) { facts.videosHaveAudio = await videosHaveAudio(files) }
+        case .tools:
+            facts.audioChannels = kinds.allSatisfy { $0 == .audio } ? audioChannels(files) : nil
+            facts.transparent = kinds.allSatisfy { $0 == .image } ? transparency(files) : nil
+        case .actions:
+            break
+        }
+        return items(for: files, mode: mode, facts: facts)
+    }
+
+    /// The petals for `files` given `facts` about them, without reading the files. The field guide uses this for files
+    /// it only pictures.
+    static func items(for files: [URL], mode: Mode, facts: Facts) -> [WheelItem] {
         let kinds = files.map(FileKind.init)
         switch mode {
         case .convert:
             var offered = formats(for: kinds).filter { format in !files.allSatisfy(format.matches) }
-            if offered.contains(.m4a), await !videosHaveAudio(files) {
+            if !facts.videosHaveAudio {
                 offered.removeAll { $0 == .m4a }
             }
             return offered.map { format in
@@ -296,12 +323,12 @@ public enum WheelCatalog {
                 )
             }
         case .tools:
-            let channels = kinds.allSatisfy { $0 == .audio } ? audioChannels(files) : nil
-            let transparent = kinds.allSatisfy { $0 == .image } ? transparency(files) : nil
             return Tool.allCases
                 .filter { $0.applies(to: files, kinds: kinds) }
                 .map { tool -> WheelItem in
-                    if tool == .compress { return compressItem(kinds: kinds, audioChannels: channels, transparent: transparent) }
+                    if tool == .compress {
+                        return compressItem(kinds: kinds, audioChannels: facts.audioChannels, transparent: facts.transparent)
+                    }
                     return WheelItem(
                         operation: .tool(tool), title: tool.title, symbol: tool.symbol, detail: tool.detail, progress: tool.progress)
                 }
