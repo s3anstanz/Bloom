@@ -49,7 +49,7 @@ public struct IssueReport: Equatable {
         let failureFields = [
             Field(id: "what-happened", value: "\(story)\n\nWhat I expected:\n"),
             Field(id: "file-type", value: types),
-            Field(id: "output", value: redacting(failure.message, files: failure.files)),
+            Field(id: "output", value: "The operation failed. File names, paths and diagnostic output are omitted for privacy."),
         ]
         return IssueReport(template: "bug_report.yml", title: "\(failure.petal) failed on \(types)", fields: failureFields + buildFields)
     }
@@ -74,30 +74,6 @@ public struct IssueReport: Equatable {
             if !types.contains(type) { types.append(type) }
         }
         return types.joined(separator: ", ")
-    }
-
-    /// Bloom's messages and the output of the tools it runs can name the dropped files and their folders; reports never do.
-    private static func redacting(_ message: String, files: [URL]) -> String {
-        var text = message
-        let parents = files.map { $0.deletingLastPathComponent() }
-        let folders = Set(parents.map(\.path) + parents.map { $0.resolvingSymlinksInPath().path })
-        for folder in folders.sorted(by: { $0.count > $1.count }) where folder != "/" {
-            text = text.replacingOccurrences(of: folder, with: "[folder]")
-        }
-        text = text.replacingOccurrences(of: NSHomeDirectory(), with: "~")
-        for file in files {
-            text = text.replacingOccurrences(of: file.lastPathComponent, with: "[file]")
-            // Results are named after the original, like "photo (compressed).jpg".
-            let stem = file.deletingPathExtension().lastPathComponent
-            if stem.count >= 3 { text = text.replacingOccurrences(of: stem, with: "[file]") }
-        }
-        // macOS messages can name a folder on its own, like "couldn’t be saved in the folder “Taxes 2025”".
-        let system: Set<String> = ["Users", "Volumes", "private"]
-        let names = Set(parents.flatMap { $0.pathComponents }).filter { $0.count >= 3 && !system.contains($0) }
-        for name in names.sorted(by: { $0.count > $1.count }) {
-            text = text.replacingOccurrences(of: name, with: "[folder]")
-        }
-        return String(text.prefix(500))
     }
 }
 

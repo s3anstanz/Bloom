@@ -21,6 +21,30 @@ final class FileSafetyTests: XCTestCase {
         XCTAssertEqual(Engine.uniqueURL(in: folder, base: "photo", ext: "jpg").lastPathComponent, "photo 3.jpg")
     }
 
+    func testDanglingSymlinkIsNeverChosenAsAnOutput() throws {
+        let missing = folder.appendingPathComponent("missing.jpg")
+        let link = folder.appendingPathComponent("photo.jpg")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: missing)
+
+        XCTAssertEqual(Engine.uniqueURL(in: folder, base: "photo", ext: "jpg").lastPathComponent, "photo 2.jpg")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: missing.path))
+        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link.path), missing.path)
+    }
+
+    func testConversionDoesNotFollowADanglingOutputSymlink() async throws {
+        let original = try Fixtures.image(in: folder)
+        let missing = folder.appendingPathComponent("private.jpg")
+        let link = folder.appendingPathComponent("image.jpg")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: missing)
+
+        let outputs = try await Engine.convert([original], to: .jpg)
+
+        XCTAssertEqual(outputs.map(\.lastPathComponent), ["image 2.jpg"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: missing.path))
+        XCTAssertEqual(try FileManager.default.destinationOfSymbolicLink(atPath: link.path), missing.path)
+        XCTAssertEqual(try contents(), ["image 2.jpg", "image.jpg", "image.png"])
+    }
+
     func testFoldersGetNoExtension() {
         XCTAssertEqual(Engine.uniqueURL(in: folder, base: "Report (pages)", ext: nil).lastPathComponent, "Report (pages)")
     }
@@ -65,12 +89,73 @@ final class FileSafetyTests: XCTestCase {
             _ = try await Engine.apply(.extract, to: [archive])
             XCTFail("Extracting a broken archive should fail")
         } catch {
-            // The flower gets a plain sentence; the tool's own message is kept for a problem report.
+            // The flower gets a plain sentence; tool diagnostics remain local and are omitted from browser reports.
             XCTAssertEqual(error.localizedDescription, "broken.tar.gz: Couldn’t unpack this archive. It may be damaged.")
             XCTAssertNotNil((error as? ConversionError)?.detail)
         }
 
         XCTAssertEqual(try contents(), ["broken.tar.gz"])
+    }
+
+    func testExtractDoesNotWriteThroughAnArchiveSymlinkOutsideItsFolder() async throws {
+        let victim = folder.appendingPathComponent("private.txt")
+        try Data("keep this".utf8).write(to: victim)
+        let archive = folder.appendingPathComponent("escape.tar")
+        // The extraction folder is inside a private sibling staging directory; two parents reach the input folder.
+        var bytes = tarEntry("pivot", type: "2", link: "../..")
+        bytes += tarEntry("pivot/private.txt", contents: "overwrite")
+        bytes += Data(repeating: 0, count: 1024)
+        try bytes.write(to: archive)
+
+        _ = try? await Engine.apply(.extract, to: [archive])
+
+        XCTAssertEqual(try String(contentsOf: victim, encoding: .utf8), "keep this")
+    }
+
+    func testExtractDoesNotWriteAnAbsoluteArchivePathOutsideItsFolder() async throws {
+        let victim = folder.appendingPathComponent("private.txt")
+        try Data("keep this".utf8).write(to: victim)
+        let archive = folder.appendingPathComponent("absolute.tar")
+        var bytes = tarEntry(victim.path, contents: "overwrite")
+        bytes += Data(repeating: 0, count: 1024)
+        try bytes.write(to: archive)
+
+        _ = try? await Engine.apply(.extract, to: [archive])
+
+        XCTAssertEqual(try String(contentsOf: victim, encoding: .utf8), "keep this")
+    }
+
+    // Minimal ustar records let the tests express malicious paths without trusting a tool to create them.
+    private func tarEntry(_ name: String, type: String = "0", link: String = "", contents: String = "") -> Data {
+        var header = [UInt8](repeating: 0, count: 512)
+        func field(_ text: String, at offset: Int, length: Int) {
+            let bytes = Array(text.utf8)
+            precondition(bytes.count < length)
+            header.replaceSubrange(offset..<(offset + bytes.count), with: bytes)
+        }
+        let body = Data(contents.utf8)
+        if name.utf8.count >= 100, let slash = name.lastIndex(of: "/") {
+            field(String(name[name.index(after: slash)...]), at: 0, length: 100)
+            field(String(name[..<slash]), at: 345, length: 155)
+        } else {
+            field(name, at: 0, length: 100)
+        }
+        field("0000644", at: 100, length: 8)
+        field("0000000", at: 108, length: 8)
+        field("0000000", at: 116, length: 8)
+        field(String(format: "%011o", body.count), at: 124, length: 12)
+        field("00000000000", at: 136, length: 12)
+        header.replaceSubrange(148..<156, with: Array(repeating: UInt8(32), count: 8))
+        header[156] = type.utf8.first!
+        field(link, at: 157, length: 100)
+        field("ustar", at: 257, length: 6)
+        header[263] = 48
+        header[264] = 48
+        let checksum = header.reduce(0) { $0 + Int($1) }
+        field(String(format: "%06o", checksum), at: 148, length: 7)
+        header[154] = 0
+        header[155] = 32
+        return Data(header) + body + Data(repeating: 0, count: (512 - body.count % 512) % 512)
     }
 
     func testAFailedZipLeavesNoArchiveBehind() async throws {

@@ -21,7 +21,8 @@ final class IssueReportTests: XCTestCase {
         XCTAssertEqual(report.template, "bug_report.yml")
         XCTAssertEqual(value("title", in: report), "Compress failed on PDF")
         XCTAssertEqual(value("file-type", in: report), "PDF")
-        XCTAssertEqual(value("output", in: report), "[file]: couldn’t write [folder]/[file] (compressed).pdf")
+        XCTAssertEqual(
+            value("output", in: report), "The operation failed. File names, paths and diagnostic output are omitted for privacy.")
         XCTAssertEqual(
             value("what-happened", in: report),
             "I dropped a file (PDF) on Compress in the ⌘ Tools flower, and it failed.\n\nWhat I expected:\n"
@@ -46,7 +47,7 @@ final class IssueReportTests: XCTestCase {
 
         XCTAssertEqual(
             value("output", in: report),
-            "The file “[file] (compressed).pdf” couldn’t be saved in the folder “[folder]” of “[folder]”."
+            "The operation failed. File names, paths and diagnostic output are omitted for privacy."
         )
     }
 
@@ -61,7 +62,23 @@ final class IssueReportTests: XCTestCase {
             value("what-happened", in: report),
             "I dropped 3 files (JPG, PNG) on PDF in the ⇧ Convert flower, and it failed.\n\nWhat I expected:\n"
         )
-        XCTAssertEqual(value("output", in: report), "Couldn’t save the PDF.")
+        XCTAssertEqual(
+            value("output", in: report), "The operation failed. File names, paths and diagnostic output are omitted for privacy.")
+    }
+
+    func testProblemReportOmitsUnknownPathsAndArchiveMemberContents() {
+        let failure = IssueReport.Failure(
+            petal: "Extract", mode: .tools,
+            files: [URL(fileURLWithPath: "/tmp/download.zip")],
+            message: "ditto: clients/Secret Acquisition.txt: invalid data; /Volumes/Private/merger.txt: Client token 12345"
+        )
+        let report = IssueReport.problem(failure, build: build)
+        let query = report.queryItems.compactMap(\.value).joined(separator: "\n")
+
+        for privateText in ["Secret Acquisition", "clients/", "/Volumes/Private", "merger.txt", "Client token 12345"] {
+            XCTAssertFalse(query.contains(privateText), "Diagnostics must stay out of browser query parameters")
+        }
+        XCTAssertNotNil(value("output", in: report))
     }
 
     func testProblemReportWithoutAFailureCarriesOnlyTheBuild() {
