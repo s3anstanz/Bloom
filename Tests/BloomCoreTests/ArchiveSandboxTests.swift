@@ -36,7 +36,12 @@ final class ArchiveSandboxTests: XCTestCase {
         let diagnostics = (try? String(contentsOf: log, encoding: .utf8)) ?? ""
 
         XCTAssertNotEqual(process.terminationStatus, 0, "An escape attempt must fail; diagnostics: \(diagnostics)")
-        XCTAssertEqual(try String(contentsOf: output.appendingPathComponent("inside.txt"), encoding: .utf8), "safe")
+        let inside = output.appendingPathComponent("inside.txt")
+        guard FileManager.default.fileExists(atPath: inside.path) else {
+            XCTFail("The sandbox blocked its output folder; diagnostics: \(diagnostics)")
+            return
+        }
+        XCTAssertEqual(try String(contentsOf: inside, encoding: .utf8), "safe")
         XCTAssertEqual(try String(contentsOf: victim, encoding: .utf8), "keep this")
     }
 }
