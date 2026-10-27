@@ -124,15 +124,16 @@ final class OutputTransaction: @unchecked Sendable {
     private func volumeIgnoresOwnership(at directory: URL) throws -> Bool {
         var info = statfs()
         guard statfs(directory.path, &info) == 0 else { throw posixError() }
-        return info.f_flags & UInt32(MNT_IGNORE_OWNERS) != 0
+        return info.f_flags & UInt32(MNT_IGNORE_OWNERSHIP) != 0
     }
 
     /// A force-quit cannot run `cleanUp`. Remove only old, owner-controlled staging directories when Bloom next writes
     /// to the same folder; the age threshold avoids touching another running Bloom process.
     private func removeStaleStagingDirectories(in folder: URL) {
         let keys: Set<URLResourceKey> = [.contentModificationDateKey]
-        guard let entries = try? FileManager.default.contentsOfDirectory(
-            at: folder, includingPropertiesForKeys: Array(keys), options: [.skipsSubdirectoryDescendants])
+        guard
+            let entries = try? FileManager.default.contentsOfDirectory(
+                at: folder, includingPropertiesForKeys: Array(keys), options: [.skipsSubdirectoryDescendants])
         else { return }
         let cutoff = Date().addingTimeInterval(-Self.staleStagingAge)
         for entry in entries where entry.lastPathComponent.hasPrefix(".bloom-") {
