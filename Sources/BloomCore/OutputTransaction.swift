@@ -123,7 +123,7 @@ final class OutputTransaction: @unchecked Sendable {
             }
             throw posixError(code)
         }
-        defer { acl_free(acl) }
+        defer { acl_free(UnsafeMutableRawPointer(acl)) }
         guard acl_valid(acl) == 0 else { throw posixError() }
         var entry: acl_entry_t?
         var cursor = Int32(ACL_FIRST_ENTRY.rawValue)
