@@ -32,8 +32,10 @@ final class ArchiveSandboxTests: XCTestCase {
 
         try process.run()
         process.waitUntilExit()
+        try errors.synchronize()
+        let diagnostics = (try? String(contentsOf: log, encoding: .utf8)) ?? ""
 
-        XCTAssertNotEqual(process.terminationStatus, 0, "An escape attempt must fail")
+        XCTAssertNotEqual(process.terminationStatus, 0, "An escape attempt must fail; diagnostics: \(diagnostics)")
         XCTAssertEqual(try String(contentsOf: output.appendingPathComponent("inside.txt"), encoding: .utf8), "safe")
         XCTAssertEqual(try String(contentsOf: victim, encoding: .utf8), "keep this")
     }

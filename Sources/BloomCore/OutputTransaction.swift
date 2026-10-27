@@ -91,10 +91,12 @@ final class OutputTransaction: @unchecked Sendable {
     }
 
     /// Owner-only staging is insufficient when another user can replace its entry through a shared parent.
-    /// Use canonical paths and reject ancestors owned or replaceable by other users. Sticky directories such as
-    /// /tmp protect our entries; another process running as this same user is outside this permission boundary.
+    /// Use canonical paths and reject ancestors owned or replaceable by other users. macOS's private per-user
+    /// temporary directory is a trusted boundary after it passes the same checks; its system-owned parents are not
+    /// part of the user's selected output path. Another process running as this same user is outside this boundary.
     private func validateAncestry(of folder: URL) throws {
         var ancestor = folder
+        let temporary = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
         while true {
             var info = stat()
             guard lstat(ancestor.path, &info) == 0 else { throw posixError() }
@@ -107,7 +109,7 @@ final class OutputTransaction: @unchecked Sendable {
                 throw ConversionError("Save this file in a folder only you can change, then try again.")
             }
             try validateACL(of: ancestor)
-            if ancestor.path == "/" { break }
+            if ancestor == temporary || ancestor.path == "/" { break }
             ancestor.deleteLastPathComponent()
         }
     }
