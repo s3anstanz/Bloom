@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// A second boundary around system archivers: archive entries cannot write outside the private extraction folder.
@@ -19,9 +20,19 @@ enum ArchiveSandbox {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/sandbox-exec")
         process.arguments =
             [
-                "-D", "OUTPUT=\(folder.resolvingSymlinksInPath().path)",
-                "-D", "ERROR_LOG=\(errorLog.resolvingSymlinksInPath().path)",
+                "-D", "OUTPUT=\(try realPath(folder))",
+                "-D", "ERROR_LOG=\(try realPath(errorLog))",
                 "-p", profile, tool.path,
             ] + arguments
+    }
+
+    /// Foundation presents `/private/var` as `/var` on macOS. Seatbelt compares the kernel's real path, so use
+    /// `realpath` rather than the display-oriented Foundation spelling for policy parameters.
+    private static func realPath(_ url: URL) throws -> String {
+        guard let path = realpath(url.path, nil) else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+        defer { free(path) }
+        return String(cString: path)
     }
 }

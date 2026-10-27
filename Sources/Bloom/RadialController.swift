@@ -245,8 +245,7 @@ final class RadialController {
                     petal: petal,
                     mode: self.model.mode,
                     files: files,
-                    message: [error.localizedDescription, (error as? ConversionError)?.detail]
-                        .compactMap { $0 }.joined(separator: "\n")
+                    reportMessage: (error as? ConversionError)?.reportMessage
                 )
                 self.model.phase = .failed
                 self.model.status = error.localizedDescription

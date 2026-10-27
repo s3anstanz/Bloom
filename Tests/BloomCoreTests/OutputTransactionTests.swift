@@ -111,6 +111,20 @@ final class OutputTransactionTests: XCTestCase {
         XCTAssertEqual(try contents(), [])
     }
 
+    func testAStaleStagingDirectoryIsRemovedWhenTheFolderIsUsedAgain() throws {
+        let stale = folder.appendingPathComponent(".bloom-abandoned", isDirectory: true)
+        try FileManager.default.createDirectory(at: stale, withIntermediateDirectories: false)
+        try Data("partial".utf8).write(to: stale.appendingPathComponent("partial.mov"))
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-48 * 60 * 60)], ofItemAtPath: stale.path)
+        let transaction = OutputTransaction()
+        defer { transaction.cleanUp() }
+
+        _ = try transaction.stage(in: folder, base: "new", ext: "mov")
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stale.path))
+    }
+
     func testDirectoryResultsArePublishedWithoutReplacingSymlinks() async throws {
         let missing = folder.appendingPathComponent("missing", isDirectory: true)
         let link = folder.appendingPathComponent("pages")

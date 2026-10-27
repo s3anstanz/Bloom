@@ -1,6 +1,7 @@
 import AVFoundation
 import AppKit
 import CoreImage
+import Darwin
 import ImageIO
 import PDFKit
 import Quartz
@@ -11,10 +12,19 @@ public struct ConversionError: LocalizedError {
     public let message: String
     /// Local diagnostics from a failed tool. Never include these in a browser report.
     public let detail: String?
+    /// A fixed sentence written by Bloom that is safe to include in a browser report.
+    public let reportMessage: String?
 
     public init(_ message: String, detail: String? = nil) {
         self.message = message
         self.detail = detail
+        reportMessage = message
+    }
+
+    init(privateMessage message: String, detail: String? = nil, reportMessage: String?) {
+        self.message = message
+        self.detail = detail
+        self.reportMessage = reportMessage
     }
 
     public var errorDescription: String? { message }
@@ -41,8 +51,11 @@ public enum Engine {
                     outputs.append(try await convertOne(file, to: format))
                 } catch {
                     discard(outputs)
+                    let conversion = error as? ConversionError
                     throw ConversionError(
-                        "\(file.lastPathComponent): \(error.localizedDescription)", detail: (error as? ConversionError)?.detail)
+                        privateMessage: "\(file.lastPathComponent): \(error.localizedDescription)",
+                        detail: conversion?.detail,
+                        reportMessage: conversion?.reportMessage)
                 }
             }
             return outputs
@@ -65,8 +78,11 @@ public enum Engine {
                         outputs.append(try await applyOne(tool, to: file))
                     } catch {
                         discard(outputs)
+                        let conversion = error as? ConversionError
                         throw ConversionError(
-                            "\(file.lastPathComponent): \(error.localizedDescription)", detail: (error as? ConversionError)?.detail)
+                            privateMessage: "\(file.lastPathComponent): \(error.localizedDescription)",
+                            detail: conversion?.detail,
+                            reportMessage: conversion?.reportMessage)
                     }
                 }
                 return outputs
@@ -89,8 +105,11 @@ public enum Engine {
                     }
                 } catch {
                     discard(outputs)
+                    let conversion = error as? ConversionError
                     throw ConversionError(
-                        "\(file.lastPathComponent): \(error.localizedDescription)", detail: (error as? ConversionError)?.detail)
+                        privateMessage: "\(file.lastPathComponent): \(error.localizedDescription)",
+                        detail: conversion?.detail,
+                        reportMessage: conversion?.reportMessage)
                 }
             }
             guard !outputs.isEmpty else { throw AlreadySmall(level: level, files: files.count) }
@@ -580,7 +599,11 @@ public enum Engine {
         let merged = PDFDocument()
         for file in sorted {
             if FileKind(file) == .pdf {
-                guard let document = PDFDocument(url: file) else { throw ConversionError("Couldn’t open \(file.lastPathComponent).") }
+                guard let document = PDFDocument(url: file) else {
+                    throw ConversionError(
+                        privateMessage: "Couldn’t open \(file.lastPathComponent).",
+                        reportMessage: "Couldn’t open one of the selected files.")
+                }
                 for index in 0..<document.pageCount {
                     if let page = document.page(at: index)?.copy() as? PDFPage {
                         merged.insert(page, at: merged.pageCount)
@@ -737,7 +760,9 @@ public enum Engine {
     private static func appendImage(_ file: URL, to document: PDFDocument) throws {
         let image = try loadImage(file)
         guard let page = PDFPage(image: NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))) else {
-            throw ConversionError("Couldn’t add \(file.lastPathComponent) to the PDF.")
+            throw ConversionError(
+                privateMessage: "Couldn’t add \(file.lastPathComponent) to the PDF.",
+                reportMessage: "Couldn’t add one of the selected files to the PDF.")
         }
         document.insert(page, at: document.pageCount)
     }
@@ -828,10 +853,9 @@ public enum Engine {
         process.currentDirectoryURL = directory
         process.standardOutput = FileHandle.nullDevice
         // stderr goes to a file: a pipe nobody drains while the tool runs blocks it once ~64 KB of warnings pile up.
-        let errorLog = try stagedURL(in: FileManager.default.temporaryDirectory, base: "diagnostics", ext: "log")
-        guard FileManager.default.createFile(atPath: errorLog.path, contents: nil, attributes: [.posixPermissions: 0o600]) else {
-            throw ConversionError("Couldn’t prepare local diagnostics.")
-        }
+        // mkstemp creates it atomically with mode 0600; diagnostics are temporary, never user-visible output.
+        let errorLog = try privateTemporaryFile(prefix: "bloom-diagnostics")
+        defer { try? FileManager.default.removeItem(at: errorLog) }
         if let folder { try ArchiveSandbox.confine(process, to: folder, diagnostics: errorLog) }
         let errors = try FileHandle(forWritingTo: errorLog)
         process.standardError = errors
@@ -839,7 +863,6 @@ public enum Engine {
             process.terminationHandler = { finished in
                 try? errors.close()
                 let log = (try? String(contentsOf: errorLog, encoding: .utf8)) ?? ""
-                try? FileManager.default.removeItem(at: errorLog)
                 if finished.terminationStatus == 0 {
                     continuation.resume()
                     return
@@ -852,9 +875,20 @@ public enum Engine {
                 try process.run()
             } catch {
                 try? errors.close()
-                try? FileManager.default.removeItem(at: errorLog)
                 continuation.resume(throwing: error)
             }
         }
+    }
+
+    private static func privateTemporaryFile(prefix: String) throws -> URL {
+        let template = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(prefix)-XXXXXX").path
+        var bytes = Array(template.utf8CString)
+        let descriptor = bytes.withUnsafeMutableBufferPointer { buffer in
+            mkstemp(buffer.baseAddress!)
+        }
+        guard descriptor >= 0 else { throw ConversionError("Couldn’t prepare local diagnostics.") }
+        close(descriptor)
+        return URL(fileURLWithPath: String(cString: bytes))
     }
 }

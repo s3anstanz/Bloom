@@ -126,7 +126,7 @@ When an action can't work on your Mac, such as AirDrop on a Mac without it, its 
 
 ## Feedback
 
-**Report a Problem…** and **Send Feedback…** in Bloom's menu open a GitHub issue in your browser, already filled in with your Bloom version, macOS version and Mac. After a drop fails, Report a Problem also fills in the petal and file type. Error messages and tool diagnostics stay out of the report because they can contain private file names, paths or document contents. Opening the form sends these prefilled fields to GitHub through your browser; read them, add what you like and submit to create an issue. You need a GitHub account.
+**Report a Problem…** and **Send Feedback…** in Bloom's menu open a GitHub issue in your browser, already filled in with your Bloom version, macOS version and Mac. After a drop fails, Report a Problem also fills in the petal, file type and Bloom's fixed error sentence. File names, paths and tool diagnostics stay out of the report because they can contain private document details. Opening the form sends these prefilled fields to GitHub through your browser; read them, add what you like and submit to create an issue. You need a GitHub account.
 
 ## Permissions
 

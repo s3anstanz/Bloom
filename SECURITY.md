@@ -18,4 +18,4 @@ Conversions are staged in private directories and published without replacing an
 
 Archive subprocesses run under a macOS sandbox policy that denies network access and limits writes to the private extraction folder and local diagnostic log. This is not a resource quota: archive expansion, converter memory use, and processing time are not currently bounded. Other document/media importers are not isolated by this archive policy; the source-code offline guard does not prove that platform importers never fetch external resources.
 
-Problem-report URLs contain build information, petal and file-type metadata. They exclude free-form error messages and tool diagnostics. Opening the form sends its prefilled fields to GitHub through the browser before an issue is submitted.
+Problem-report URLs contain build information, petal and file-type metadata, and a fixed error sentence written by Bloom. They exclude file names, paths, free-form tool diagnostics and archive member contents. Opening the form sends its prefilled fields to GitHub through the browser before an issue is submitted.

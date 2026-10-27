@@ -14,7 +14,7 @@ final class IssueReportTests: XCTestCase {
             petal: "Compress",
             mode: .tools,
             files: [file],
-            message: "Payslip March.pdf: couldn’t write /Users/someone/Taxes 2025/Payslip March (compressed).pdf"
+            reportMessage: "Couldn’t compress this file."
         )
         let report = IssueReport.problem(failure, build: build)
 
@@ -22,7 +22,8 @@ final class IssueReportTests: XCTestCase {
         XCTAssertEqual(value("title", in: report), "Compress failed on PDF")
         XCTAssertEqual(value("file-type", in: report), "PDF")
         XCTAssertEqual(
-            value("output", in: report), "The operation failed. File names, paths and diagnostic output are omitted for privacy.")
+            value("output", in: report),
+            "Couldn’t compress this file.\n\nFile names, paths and diagnostic output are omitted for privacy.")
         XCTAssertEqual(
             value("what-happened", in: report),
             "I dropped a file (PDF) on Compress in the ⌘ Tools flower, and it failed.\n\nWhat I expected:\n"
@@ -41,7 +42,7 @@ final class IssueReportTests: XCTestCase {
             petal: "Compress",
             mode: .tools,
             files: [file],
-            message: "The file “Payslip March (compressed).pdf” couldn’t be saved in the folder “Taxes 2025” of “someone”."
+            reportMessage: nil
         )
         let report = IssueReport.problem(failure, build: build)
 
@@ -53,7 +54,8 @@ final class IssueReportTests: XCTestCase {
 
     func testProblemReportListsEachFileTypeOnceForASelection() {
         let files = ["a.jpg", "b.png", "c.jpg"].map { URL(fileURLWithPath: "/tmp/\($0)") }
-        let failure = IssueReport.Failure(petal: "PDF", mode: .convert, files: files, message: "Couldn’t save the PDF.")
+        let failure = IssueReport.Failure(
+            petal: "PDF", mode: .convert, files: files, reportMessage: "Couldn’t save the PDF.")
         let report = IssueReport.problem(failure, build: build)
 
         XCTAssertEqual(value("file-type", in: report), "JPG, PNG")
@@ -63,14 +65,15 @@ final class IssueReportTests: XCTestCase {
             "I dropped 3 files (JPG, PNG) on PDF in the ⇧ Convert flower, and it failed.\n\nWhat I expected:\n"
         )
         XCTAssertEqual(
-            value("output", in: report), "The operation failed. File names, paths and diagnostic output are omitted for privacy.")
+            value("output", in: report),
+            "Couldn’t save the PDF.\n\nFile names, paths and diagnostic output are omitted for privacy.")
     }
 
     func testProblemReportOmitsUnknownPathsAndArchiveMemberContents() {
         let failure = IssueReport.Failure(
             petal: "Extract", mode: .tools,
             files: [URL(fileURLWithPath: "/tmp/download.zip")],
-            message: "ditto: clients/Secret Acquisition.txt: invalid data; /Volumes/Private/merger.txt: Client token 12345"
+            reportMessage: "Couldn’t unpack this archive. It may be damaged."
         )
         let report = IssueReport.problem(failure, build: build)
         let query = report.queryItems.compactMap(\.value).joined(separator: "\n")

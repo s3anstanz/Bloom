@@ -16,6 +16,8 @@ final class OutputTransaction: @unchecked Sendable {
     private let lock = NSLock()
     private var outputs: [Output] = []
     private var directories: [URL] = []
+    private var cleanedFolders: Set<URL> = []
+    private static let staleStagingAge: TimeInterval = 24 * 60 * 60
 
     static func perform(_ operation: () async throws -> [URL]) async throws -> [URL] {
         // apply(.compress) delegates to compress; keep one transaction for the whole selection.
@@ -32,6 +34,7 @@ final class OutputTransaction: @unchecked Sendable {
         defer { lock.unlock() }
         let folder = folder.resolvingSymlinksInPath()
         try validateAncestry(of: folder)
+        if cleanedFolders.insert(folder).inserted { removeStaleStagingDirectories(in: folder) }
         let directory = folder.appendingPathComponent(".bloom-\(UUID().uuidString)", isDirectory: true)
         // mkdir fails on any existing entry, unlike createDirectory, and requests owner-only access from the start.
         guard mkdir(directory.path, mode_t(S_IRWXU)) == 0 else { throw posixError() }
@@ -78,6 +81,7 @@ final class OutputTransaction: @unchecked Sendable {
         for directory in directories { try? FileManager.default.removeItem(at: directory) }
         directories.removeAll()
         outputs.removeAll()
+        cleanedFolders.removeAll()
     }
 
     static func entryExists(at url: URL) -> Bool {
@@ -102,15 +106,45 @@ final class OutputTransaction: @unchecked Sendable {
             guard lstat(ancestor.path, &info) == 0 else { throw posixError() }
             let writableByOthers = info.st_mode & mode_t(S_IWGRP | S_IWOTH) != 0
             let sticky = info.st_mode & mode_t(S_ISVTX) != 0
+            let ignoresOwnership = try volumeIgnoresOwnership(at: ancestor)
             guard info.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR),
-                info.st_uid == geteuid() || info.st_uid == 0,
-                !writableByOthers || sticky
+                ignoresOwnership || info.st_uid == geteuid() || info.st_uid == 0,
+                ignoresOwnership || !writableByOthers || sticky
             else {
                 throw ConversionError("Save this file in a folder only you can change, then try again.")
             }
-            try validateACL(of: ancestor)
+            if !ignoresOwnership { try validateACL(of: ancestor) }
             if ancestor == temporary || ancestor.path == "/" { break }
             ancestor.deleteLastPathComponent()
+        }
+    }
+
+    /// FAT, exFAT and many removable APFS volumes are mounted with ownership disabled. Their synthetic owner and mode
+    /// bits do not describe a cross-user boundary, so treating 0777 as shared would reject the whole volume.
+    private func volumeIgnoresOwnership(at directory: URL) throws -> Bool {
+        var info = statfs()
+        guard statfs(directory.path, &info) == 0 else { throw posixError() }
+        return info.f_flags & UInt32(MNT_IGNORE_OWNERS) != 0
+    }
+
+    /// A force-quit cannot run `cleanUp`. Remove only old, owner-controlled staging directories when Bloom next writes
+    /// to the same folder; the age threshold avoids touching another running Bloom process.
+    private func removeStaleStagingDirectories(in folder: URL) {
+        let keys: Set<URLResourceKey> = [.contentModificationDateKey]
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: folder, includingPropertiesForKeys: Array(keys), options: [.skipsSubdirectoryDescendants])
+        else { return }
+        let cutoff = Date().addingTimeInterval(-Self.staleStagingAge)
+        for entry in entries where entry.lastPathComponent.hasPrefix(".bloom-") {
+            guard let values = try? entry.resourceValues(forKeys: keys),
+                let modified = values.contentModificationDate, modified < cutoff
+            else { continue }
+            var info = stat()
+            guard lstat(entry.path, &info) == 0,
+                info.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR),
+                info.st_uid == geteuid()
+            else { continue }
+            try? FileManager.default.removeItem(at: entry)
         }
     }
 

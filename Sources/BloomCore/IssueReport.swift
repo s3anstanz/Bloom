@@ -8,18 +8,18 @@ public struct IssueReport: Equatable {
         public let value: String
     }
 
-    /// A petal that failed: what was dropped on it, and what Bloom said.
+    /// A petal that failed, with only Bloom-authored text that is safe to send to GitHub.
     public struct Failure: Equatable {
         public let petal: String
         public let mode: Mode
         public let files: [URL]
-        public let message: String
+        public let reportMessage: String?
 
-        public init(petal: String, mode: Mode, files: [URL], message: String) {
+        public init(petal: String, mode: Mode, files: [URL], reportMessage: String?) {
             self.petal = petal
             self.mode = mode
             self.files = files
-            self.message = message
+            self.reportMessage = reportMessage
         }
     }
 
@@ -46,10 +46,12 @@ public struct IssueReport: Equatable {
         let types = fileTypes(failure.files)
         let dropped = failure.files.count == 1 ? "a file (\(types))" : "\(failure.files.count) files (\(types))"
         let story = "I dropped \(dropped) on \(failure.petal) in the \(flower(failure.mode)) flower, and it failed."
+        let privacy = "File names, paths and diagnostic output are omitted for privacy."
+        let output = failure.reportMessage.map { "\($0)\n\n\(privacy)" } ?? "The operation failed. \(privacy)"
         let failureFields = [
             Field(id: "what-happened", value: "\(story)\n\nWhat I expected:\n"),
             Field(id: "file-type", value: types),
-            Field(id: "output", value: "The operation failed. File names, paths and diagnostic output are omitted for privacy."),
+            Field(id: "output", value: output),
         ]
         return IssueReport(template: "bug_report.yml", title: "\(failure.petal) failed on \(types)", fields: failureFields + buildFields)
     }
