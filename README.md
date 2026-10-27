@@ -126,7 +126,7 @@ When an action can't work on your Mac, such as AirDrop on a Mac without it, its 
 
 ## Feedback
 
-**Report a Problem…** and **Send Feedback…** in Bloom's menu open a GitHub issue in your browser, already filled in with your Bloom version, macOS version and Mac. After a drop fails, Report a Problem also fills in the petal, the file type and Bloom's error, never the file's name or folder. Read it, add what you like and submit it; nothing is sent before you do. You need a GitHub account.
+**Report a Problem…** and **Send Feedback…** in Bloom's menu open a GitHub issue in your browser, already filled in with your Bloom version, macOS version and Mac. After a drop fails, Report a Problem also fills in the petal, file type and Bloom's fixed error sentence. File names, paths and tool diagnostics stay out of the report because they can contain private document details. Opening the form sends these prefilled fields to GitHub through your browser; read them, add what you like and submit to create an issue. You need a GitHub account.
 
 ## Permissions
 
@@ -139,7 +139,7 @@ Build and relaunch with `scripts/install.sh`, and test with `swift test`. Every 
 
 ## Privacy and security
 
-Bloom reads the files you drop on it and writes results to the same folder. It has no network code, no analytics and no third-party dependencies, and CI fails if networking code appears in BloomCore. Feedback goes through your browser, only when you submit it. Bloom notes what happens to each drag (the flower opening, a drop arriving or being refused) in your Mac's own log, never a file's name or folder; search Console for `com.westfalllabs.bloom` to read it. To report a security problem, see [SECURITY.md](SECURITY.md).
+Bloom reads the files you drop on it and writes results to the same folder. It has no network code, no analytics and no third-party dependencies, and CI fails if networking code appears in BloomCore. Feedback forms open through your browser; GitHub receives the prefilled form fields when the page opens, and an issue is created only when you submit it. Bloom notes what happens to each drag (the flower opening, a drop arriving or being refused) in your Mac's own log, never a file's name or folder; search Console for `com.westfalllabs.bloom` to read it. To report a security problem, see [SECURITY.md](SECURITY.md).
 
 ## License
 

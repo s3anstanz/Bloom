@@ -1,6 +1,7 @@
 import AVFoundation
 import AppKit
 import CoreImage
+import Darwin
 import ImageIO
 import PDFKit
 import Quartz
@@ -9,12 +10,21 @@ import Vision
 
 public struct ConversionError: LocalizedError {
     public let message: String
-    /// What a command-line tool said when it failed: too technical for the flower, kept for a problem report.
+    /// Local diagnostics from a failed tool. Never include these in a browser report.
     public let detail: String?
+    /// A fixed sentence written by Bloom that is safe to include in a browser report.
+    public let reportMessage: String?
 
     public init(_ message: String, detail: String? = nil) {
         self.message = message
         self.detail = detail
+        reportMessage = message
+    }
+
+    init(privateMessage message: String, detail: String? = nil, reportMessage: String?) {
+        self.message = message
+        self.detail = detail
+        self.reportMessage = reportMessage
     }
 
     public var errorDescription: String? { message }
@@ -34,62 +44,77 @@ public enum Engine {
     }
 
     public static func convert(_ files: [URL], to format: Format) async throws -> [URL] {
-        var outputs: [URL] = []
-        for file in files where !format.matches(file) {
-            do {
-                outputs.append(try await convertOne(file, to: format))
-            } catch {
-                discard(outputs)
-                throw ConversionError(
-                    "\(file.lastPathComponent): \(error.localizedDescription)", detail: (error as? ConversionError)?.detail)
-            }
-        }
-        return outputs
-    }
-
-    public static func apply(_ tool: Tool, to files: [URL]) async throws -> [URL] {
-        switch tool {
-        case .compress:
-            return try await compress(files, level: .balanced)
-        case .mergePDF:
-            return [try mergePDF(files)]
-        case .zip:
-            return [try await archive(files)]
-        default:
+        try await OutputTransaction.perform {
             var outputs: [URL] = []
-            for file in files {
+            for file in files where !format.matches(file) {
                 do {
-                    outputs.append(try await applyOne(tool, to: file))
+                    outputs.append(try await convertOne(file, to: format))
                 } catch {
                     discard(outputs)
+                    let conversion = error as? ConversionError
                     throw ConversionError(
-                        "\(file.lastPathComponent): \(error.localizedDescription)", detail: (error as? ConversionError)?.detail)
+                        privateMessage: "\(file.lastPathComponent): \(error.localizedDescription)",
+                        detail: conversion?.detail,
+                        reportMessage: conversion?.reportMessage)
                 }
             }
             return outputs
         }
     }
 
+    public static func apply(_ tool: Tool, to files: [URL]) async throws -> [URL] {
+        try await OutputTransaction.perform {
+            switch tool {
+            case .compress:
+                return try await compress(files, level: .balanced)
+            case .mergePDF:
+                return [try mergePDF(files)]
+            case .zip:
+                return [try await archive(files)]
+            default:
+                var outputs: [URL] = []
+                for file in files {
+                    do {
+                        outputs.append(try await applyOne(tool, to: file))
+                    } catch {
+                        discard(outputs)
+                        let conversion = error as? ConversionError
+                        throw ConversionError(
+                            privateMessage: "\(file.lastPathComponent): \(error.localizedDescription)",
+                            detail: conversion?.detail,
+                            reportMessage: conversion?.reportMessage)
+                    }
+                }
+                return outputs
+            }
+        }
+    }
+
     /// Compresses each file at `level` beside the original. A result that isn't smaller than its original is thrown
     /// away, and when none is smaller nothing is saved.
     public static func compress(_ files: [URL], level: CompressionLevel) async throws -> [URL] {
-        var outputs: [URL] = []
-        for file in files {
-            do {
-                let output = try await compressOne(file, kind: FileKind(file), level: level)
-                if fileSize(output) < fileSize(file) {
-                    outputs.append(output)
-                } else {
-                    discard([output])
+        try await OutputTransaction.perform {
+            var outputs: [URL] = []
+            for file in files {
+                do {
+                    let output = try await compressOne(file, kind: FileKind(file), level: level)
+                    if fileSize(output) < fileSize(file) {
+                        outputs.append(output)
+                    } else {
+                        discard([output])
+                    }
+                } catch {
+                    discard(outputs)
+                    let conversion = error as? ConversionError
+                    throw ConversionError(
+                        privateMessage: "\(file.lastPathComponent): \(error.localizedDescription)",
+                        detail: conversion?.detail,
+                        reportMessage: conversion?.reportMessage)
                 }
-            } catch {
-                discard(outputs)
-                throw ConversionError(
-                    "\(file.lastPathComponent): \(error.localizedDescription)", detail: (error as? ConversionError)?.detail)
             }
+            guard !outputs.isEmpty else { throw AlreadySmall(level: level, files: files.count) }
+            return outputs
         }
-        guard !outputs.isEmpty else { throw AlreadySmall(level: level, files: files.count) }
-        return outputs
     }
 
     public static func canWriteImage(_ format: Format) -> Bool {
@@ -136,7 +161,7 @@ public enum Engine {
 
     private static func convertImage(_ file: URL, to format: Format) throws -> URL {
         guard let type = format.imageType else { throw ConversionError("\(format.title) isn’t an image format.") }
-        let output = outputURL(for: file, ext: format.rawValue)
+        let output = try outputURL(for: file, ext: format.rawValue)
         try writeImage(loadImage(file), to: output, type: type)
         return output
     }
@@ -144,7 +169,7 @@ public enum Engine {
     private static func imageToPDF(_ file: URL) throws -> URL {
         let document = PDFDocument()
         try appendImage(file, to: document)
-        let output = outputURL(for: file, ext: "pdf")
+        let output = try outputURL(for: file, ext: "pdf")
         guard document.write(to: output) else {
             discard([output])
             throw ConversionError("Couldn’t save the PDF.")
@@ -158,7 +183,7 @@ public enum Engine {
         else {
             throw ConversionError("No text found. This PDF may be scanned images.")
         }
-        let output = outputURL(for: file, ext: "txt")
+        let output = try outputURL(for: file, ext: "txt")
         try text.write(to: output, atomically: true, encoding: .utf8)
         return output
     }
@@ -170,11 +195,11 @@ public enum Engine {
         }
         let pageCount = document.numberOfPages
         if pageCount == 1, let page = document.page(at: 1) {
-            let output = outputURL(for: file, ext: format.rawValue)
+            let output = try outputURL(for: file, ext: format.rawValue)
             try writeImage(render(page), to: output, type: type)
             return output
         }
-        let folder = outputURL(for: file, ext: nil, suffix: " (\(format.title))")
+        let folder = try outputURL(for: file, ext: nil, suffix: " (\(format.title))")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
         do {
             for number in 1...pageCount {
@@ -202,7 +227,7 @@ public enum Engine {
         generator.requestedTimeToleranceBefore = tolerance
         generator.requestedTimeToleranceAfter = tolerance
 
-        let output = outputURL(for: file, ext: "gif")
+        let output = try outputURL(for: file, ext: "gif")
         guard let gif = CGImageDestinationCreateWithURL(output as CFURL, UTType.gif.identifier as CFString, frameCount, nil) else {
             throw ConversionError("Couldn’t create the GIF.")
         }
@@ -241,7 +266,7 @@ public enum Engine {
         ext: String,
         suffix: String = ""
     ) async throws -> URL {
-        let output = outputURL(for: file, ext: ext, suffix: suffix)
+        let output = try outputURL(for: file, ext: ext, suffix: suffix)
         var lastError: Error = ConversionError("This file can’t be saved as \(ext.uppercased()).")
         for preset in presets {
             guard let session = AVAssetExportSession(asset: asset, presetName: preset),
@@ -267,7 +292,7 @@ public enum Engine {
         case .aiff: settings = ["-f", "AIFF", "-d", "BEI16"]
         default: throw ConversionError("Can’t convert audio to \(format.title).")
         }
-        let output = outputURL(for: file, ext: format.rawValue)
+        let output = try outputURL(for: file, ext: format.rawValue)
         do {
             try await shell("/usr/bin/afconvert", settings + [file.path, output.path], failure: "Couldn’t convert this audio.")
         } catch {
@@ -278,7 +303,7 @@ public enum Engine {
     }
 
     private static func convertDocument(_ file: URL, to format: Format) async throws -> URL {
-        let output = outputURL(for: file, ext: format.rawValue)
+        let output = try outputURL(for: file, ext: format.rawValue)
         var arguments = ["-convert", format.rawValue, "-output", output.path]
         if UTType(filenameExtension: file.pathExtension)?.conforms(to: .plainText) == true {
             arguments += ["-format", "txt"]
@@ -295,7 +320,7 @@ public enum Engine {
     /// Bloom.app ships the BloomRender helper next to its executable. AppKit prints text only on a main thread, so
     /// rendering in the helper keeps the app's main thread free; without the helper (tests) it renders in-process.
     private static func documentToPDF(_ file: URL) async throws -> URL {
-        let output = outputURL(for: file, ext: "pdf")
+        let output = try outputURL(for: file, ext: "pdf")
         do {
             if let helper = Bundle.main.url(forAuxiliaryExecutable: "BloomRender") {
                 try await shell(helper.path, [file.path, output.path], failure: "Couldn’t save the PDF.")
@@ -326,7 +351,7 @@ public enum Engine {
         default:
             throw ConversionError("Can’t convert subtitles to \(format.title).")
         }
-        let output = outputURL(for: file, ext: format.rawValue)
+        let output = try outputURL(for: file, ext: format.rawValue)
         try converted.write(to: output, atomically: true, encoding: .utf8)
         return output
     }
@@ -387,7 +412,7 @@ public enum Engine {
             let asset = AVURLAsset(url: file)
             return try await export(asset, from: file, presets: [level.videoPreset], as: .mp4, ext: "mp4", suffix: " (compressed)")
         case .audio:
-            let output = outputURL(for: file, ext: "m4a", suffix: " (compressed)")
+            let output = try outputURL(for: file, ext: "m4a", suffix: " (compressed)")
             let aac = ["-f", "m4af", "-d", "aac"]
             // Apple's AAC encoder only accepts certain bitrates for each sample rate and channel count (it rejects the
             // rest with '!dat'). Stepping down to the next one it takes keeps each size at or below what it promises.
@@ -414,7 +439,7 @@ public enum Engine {
             return try compressPDF(file)
         default:
             let transparent = CompressionLevel.isTransparent(file)
-            let output = outputURL(for: file, ext: transparent ? "png" : "jpg", suffix: " (compressed)")
+            let output = try outputURL(for: file, ext: transparent ? "png" : "jpg", suffix: " (compressed)")
             try writeImage(
                 loadImage(file, maxPixelSize: level.maxPixelSize), to: output, type: transparent ? .png : .jpeg, quality: level.jpegQuality)
             return output
@@ -426,7 +451,7 @@ public enum Engine {
         // Preview's own "Reduce File Size" Quartz filter; PDFKit accepts it under the "QuartzFilter" write option.
         let reduceFileSize: QuartzFilter? = QuartzFilter(url: URL(fileURLWithPath: "/System/Library/Filters/Reduce File Size.qfilter"))
         guard let filter = reduceFileSize else { throw ConversionError("macOS’s Reduce File Size filter is missing.") }
-        let output = outputURL(for: file, ext: "pdf", suffix: " (compressed)")
+        let output = try outputURL(for: file, ext: "pdf", suffix: " (compressed)")
         guard document.write(to: output, withOptions: [PDFDocumentWriteOption(rawValue: "QuartzFilter"): filter]) else {
             discard([output])
             throw ConversionError("Couldn’t save the compressed PDF.")
@@ -441,7 +466,7 @@ public enum Engine {
         transform: (CGImage) throws -> CGImage
     ) throws -> URL {
         let format = Format.allCases.first { canWriteImage($0) && $0.matches(file) } ?? .png
-        let output = outputURL(for: file, ext: format.rawValue, suffix: suffix)
+        let output = try outputURL(for: file, ext: format.rawValue, suffix: suffix)
         try writeImage(transform(loadImage(file, scale: scale)), to: output, type: format.imageType ?? .png, quality: 0.95)
         return output
     }
@@ -499,7 +524,7 @@ public enum Engine {
         guard let cutout = CIContext().createCGImage(masked, from: masked.extent) else {
             throw ConversionError("Couldn’t remove the background.")
         }
-        let output = outputURL(for: file, ext: "png", suffix: " (no background)")
+        let output = try outputURL(for: file, ext: "png", suffix: " (no background)")
         try writeImage(cutout, to: output, type: .png)
         return output
     }
@@ -536,7 +561,7 @@ public enum Engine {
                 page.rotation = (page.rotation + 90) % 360
             }
         }
-        let output = outputURL(for: file, ext: "pdf", suffix: " (rotated)")
+        let output = try outputURL(for: file, ext: "pdf", suffix: " (rotated)")
         guard document.write(to: output) else {
             discard([output])
             throw ConversionError("Couldn’t save the PDF.")
@@ -548,7 +573,7 @@ public enum Engine {
         guard let document = PDFDocument(url: file), document.pageCount > 0 else {
             throw ConversionError(unreadablePDF)
         }
-        let folder = outputURL(for: file, ext: nil, suffix: " (pages)")
+        let folder = try outputURL(for: file, ext: nil, suffix: " (pages)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
         do {
             try writePages(of: document, into: folder)
@@ -574,7 +599,11 @@ public enum Engine {
         let merged = PDFDocument()
         for file in sorted {
             if FileKind(file) == .pdf {
-                guard let document = PDFDocument(url: file) else { throw ConversionError("Couldn’t open \(file.lastPathComponent).") }
+                guard let document = PDFDocument(url: file) else {
+                    throw ConversionError(
+                        privateMessage: "Couldn’t open \(file.lastPathComponent).",
+                        reportMessage: "Couldn’t open one of the selected files.")
+                }
                 for index in 0..<document.pageCount {
                     if let page = document.page(at: index)?.copy() as? PDFPage {
                         merged.insert(page, at: merged.pageCount)
@@ -584,7 +613,7 @@ public enum Engine {
                 try appendImage(file, to: merged)
             }
         }
-        let output = uniqueURL(in: sorted[0].deletingLastPathComponent(), base: "Merged", ext: "pdf")
+        let output = try stagedURL(in: sorted[0].deletingLastPathComponent(), base: "Merged", ext: "pdf")
         guard merged.write(to: output) else {
             discard([output])
             throw ConversionError("Couldn’t save the merged PDF.")
@@ -595,13 +624,13 @@ public enum Engine {
     private static func extract(_ file: URL) async throws -> URL {
         var base = file.deletingPathExtension().lastPathComponent
         if base.lowercased().hasSuffix(".tar") { base = String(base.dropLast(4)) }
-        let folder = uniqueURL(in: file.deletingLastPathComponent(), base: base, ext: nil)
+        let folder = try stagedURL(in: file.deletingLastPathComponent(), base: base, ext: nil)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
         do {
             if file.pathExtension.lowercased() == "zip" {
-                try await shell("/usr/bin/ditto", ["-x", "-k", file.path, folder.path], failure: unpackFailure)
+                try await shell("/usr/bin/ditto", ["-x", "-k", file.path, folder.path], failure: unpackFailure, restrictWritesTo: folder)
             } else {
-                try await shell("/usr/bin/tar", ["-xf", file.path, "-C", folder.path], failure: unpackFailure)
+                try await shell("/usr/bin/tar", ["-xf", file.path, "-C", folder.path], failure: unpackFailure, restrictWritesTo: folder)
             }
         } catch {
             discard([folder])
@@ -613,7 +642,7 @@ public enum Engine {
     private static func archive(_ files: [URL]) async throws -> URL {
         let folder = files[0].deletingLastPathComponent()
         if files.count == 1 {
-            let output = uniqueURL(in: folder, base: files[0].lastPathComponent, ext: "zip")
+            let output = try stagedURL(in: folder, base: files[0].lastPathComponent, ext: "zip")
             do {
                 try await shell(
                     "/usr/bin/ditto", ["-c", "-k", "--sequesterRsrc", "--keepParent", files[0].path, output.path],
@@ -627,12 +656,12 @@ public enum Engine {
         guard files.allSatisfy({ $0.deletingLastPathComponent().path == folder.path }) else {
             throw ConversionError("Zip files from one folder at a time.")
         }
-        let output = uniqueURL(in: folder, base: "Archive", ext: "zip")
+        let output = try stagedURL(in: folder, base: "Archive", ext: "zip")
         // "./" keeps a name like "-m" from being read as zip's move-and-delete option; -nw stops zip expanding * and ? in names.
         let names = files.map { "./" + $0.lastPathComponent }
         do {
             try await shell(
-                "/usr/bin/zip", ["-r", "-q", "-X", "-nw", output.lastPathComponent] + names, in: folder,
+                "/usr/bin/zip", ["-r", "-q", "-X", "-nw", output.path] + names, in: folder,
                 failure: "Couldn’t zip these files.")
         } catch {
             discard([output])
@@ -731,7 +760,9 @@ public enum Engine {
     private static func appendImage(_ file: URL, to document: PDFDocument) throws {
         let image = try loadImage(file)
         guard let page = PDFPage(image: NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))) else {
-            throw ConversionError("Couldn’t add \(file.lastPathComponent) to the PDF.")
+            throw ConversionError(
+                privateMessage: "Couldn’t add \(file.lastPathComponent) to the PDF.",
+                reportMessage: "Couldn’t add one of the selected files to the PDF.")
         }
         document.insert(page, at: document.pageCount)
     }
@@ -778,12 +809,19 @@ public enum Engine {
         return "Page " + String(repeating: "0", count: String(count).count - label.count) + label
     }
 
-    private static func outputURL(for file: URL, ext: String?, suffix: String = "") -> URL {
-        uniqueURL(
+    private static func outputURL(for file: URL, ext: String?, suffix: String = "") throws -> URL {
+        try stagedURL(
             in: file.deletingLastPathComponent(),
             base: file.deletingPathExtension().lastPathComponent + suffix,
             ext: ext
         )
+    }
+
+    private static func stagedURL(in folder: URL, base: String, ext: String?) throws -> URL {
+        guard let transaction = OutputTransaction.current else {
+            throw ConversionError("Couldn’t prepare a safe output folder.")
+        }
+        return try transaction.stage(in: folder, base: base, ext: ext)
     }
 
     private static let unreadablePDF = "Couldn’t open this PDF. It may be damaged or locked."
@@ -797,7 +835,7 @@ public enum Engine {
         }
         var url = candidate(base)
         var counter = 2
-        while FileManager.default.fileExists(atPath: url.path) {
+        while OutputTransaction.entryExists(at: url) {
             url = candidate("\(base) \(counter)")
             counter += 1
         }
@@ -805,22 +843,26 @@ public enum Engine {
     }
 
     /// Runs `tool` and, if it fails, throws `failure` for the flower with the tool's own message as the detail.
-    private static func shell(_ tool: String, _ arguments: [String], in directory: URL? = nil, failure: String) async throws {
+    private static func shell(
+        _ tool: String, _ arguments: [String], in directory: URL? = nil, failure: String,
+        restrictWritesTo folder: URL? = nil
+    ) async throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tool)
         process.arguments = arguments
         process.currentDirectoryURL = directory
         process.standardOutput = FileHandle.nullDevice
         // stderr goes to a file: a pipe nobody drains while the tool runs blocks it once ~64 KB of warnings pile up.
-        let errorLog = FileManager.default.temporaryDirectory.appendingPathComponent("bloom-\(UUID().uuidString).log")
-        FileManager.default.createFile(atPath: errorLog.path, contents: nil)
+        // mkstemp creates it atomically with mode 0600; diagnostics are temporary, never user-visible output.
+        let errorLog = try privateTemporaryFile(prefix: "bloom-diagnostics")
+        defer { try? FileManager.default.removeItem(at: errorLog) }
+        if let folder { try ArchiveSandbox.confine(process, to: folder, diagnostics: errorLog) }
         let errors = try FileHandle(forWritingTo: errorLog)
         process.standardError = errors
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             process.terminationHandler = { finished in
                 try? errors.close()
                 let log = (try? String(contentsOf: errorLog, encoding: .utf8)) ?? ""
-                try? FileManager.default.removeItem(at: errorLog)
                 if finished.terminationStatus == 0 {
                     continuation.resume()
                     return
@@ -833,9 +875,20 @@ public enum Engine {
                 try process.run()
             } catch {
                 try? errors.close()
-                try? FileManager.default.removeItem(at: errorLog)
                 continuation.resume(throwing: error)
             }
         }
+    }
+
+    private static func privateTemporaryFile(prefix: String) throws -> URL {
+        let template = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(prefix)-XXXXXX").path
+        var bytes = Array(template.utf8CString)
+        let descriptor = bytes.withUnsafeMutableBufferPointer { buffer in
+            mkstemp(buffer.baseAddress!)
+        }
+        guard descriptor >= 0 else { throw ConversionError("Couldn’t prepare local diagnostics.") }
+        close(descriptor)
+        return URL(fileURLWithPath: String(cString: bytes))
     }
 }

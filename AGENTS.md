@@ -38,7 +38,7 @@ These instructions apply to every agent working in this repository, including Cl
 - A petal that can't work on this Mac, like AirDrop on a Mac without it, is shown dimmed with the reason (`WheelItem.unavailable`), never offered and left to fail.
 - Minimum macOS 13. Gate newer APIs with `#available` and hide the petal when unavailable.
 - Never modify the original file; write results beside it with Finder-style unique names.
-- Report a Problem and Send Feedback open a GitHub issue form in the person's browser, filled in by `IssueReport`: the Bloom version and commit, macOS version and Mac chip, and for a failed petal the petal, file types and Bloom's message with file and folder names taken out. The person reads and submits it; the app sends nothing itself.
+- Report a Problem and Send Feedback open a GitHub issue form in the person's browser, filled in by `IssueReport`: the Bloom version and commit, macOS version and Mac chip, and for a failed petal the petal and file types. Free-form error messages and tool diagnostics must stay out of browser reports. The person reads and submits it; the app sends nothing itself.
 - Keep the README's petal tables in sync with what the code offers.
 
 ## Validation and review policy

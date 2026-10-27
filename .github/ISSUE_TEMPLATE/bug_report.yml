@@ -4,7 +4,7 @@ labels: [bug]
 body:
   - type: markdown
     attributes:
-      value: "**Report a Problem…** in Bloom's menu fills in what it can. Nothing goes anywhere until you submit this form, and you can change any of it first."
+      value: "**Report a Problem…** in Bloom's menu opens this form with a few fields filled in. GitHub receives those fields when the page opens; review and change them before you submit."
   - type: textarea
     id: what-happened
     attributes:
