@@ -4,6 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Titles its pull requests `ci(ci): Bump …` so they pass scripts/check-title.sh.
+    commit-message:
+      prefix: "ci(ci)"
     groups:
       github-actions:
         patterns: ["*"]
